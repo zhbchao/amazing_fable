@@ -14,6 +14,9 @@ A small gallery of interactive demos written entirely by **Claude Fable 5** — 
 | 🎨 Generative art | [Flow Fields](generative/) | Thousands of particles painting through a hand-rolled fractal value-noise vector field, with curated palettes and PNG export |
 | 🪢 Physics simulation | [Tearable Cloth](physics/) | Verlet integration with constraint relaxation: grab, fling, and rip the cloth; fibers glow red under stress and snap when overstretched |
 | 📊 Data visualization | [Capability Graph](dataviz/) | Force-directed graph with spring forces, charge repulsion, drag interaction, and hover-to-trace highlighting |
+| 💡 Ray tracing | [Little Path Tracer](raytracer/) | A progressive path tracer in pure JS: global illumination, soft sun shadows, mirror and glossy materials, emissive night lamps, orbit camera — one jittered sample per pixel per frame, converging live |
+| 🎵 Generative music | [Endless Symphony](music/) | An infinite procedural composition: chord progressions, bass, melody, and drums improvised from a seed, with every instrument synthesized from raw oscillators and noise through a hand-built reverb and delay — plus a radial spectrum visualizer |
+| 🧠 Machine learning | [Watch It Learn](neural/) | A multilayer perceptron with Fourier-feature inputs — forward pass, backpropagation, and Adam hand-written — trains live in the tab to paint a target image, including one you doodle yourself |
 
 ## Running locally
 

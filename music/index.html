@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Endless Symphony — Fable 5 Showcase</title>
+<style>
+  :root { --bg: #070810; --text: #e8edf7; --muted: #8b96ad; --border: rgba(140,160,200,0.18); }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.9rem 1.4rem;
+    z-index: 2;
+  }
+  header a { color: var(--muted); text-decoration: none; font-size: 0.9rem; }
+  header a:hover { color: var(--text); }
+  header .title { font-weight: 700; }
+  header .title em {
+    font-style: normal;
+    background: linear-gradient(90deg, #4ade80, #60a5fa);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  #stage { flex: 1; position: relative; }
+  canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+  #bigplay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1.2rem;
+    background: rgba(7,8,16,0.55);
+    backdrop-filter: blur(3px);
+    z-index: 3;
+    cursor: pointer;
+    border: none;
+    color: var(--text);
+    font-family: inherit;
+  }
+  #bigplay .disc {
+    width: 110px; height: 110px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #4ade80, #60a5fa);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2.6rem;
+    color: #06121f;
+    box-shadow: 0 0 60px rgba(96,165,250,0.45);
+    transition: transform 0.2s;
+  }
+  #bigplay:hover .disc { transform: scale(1.07); }
+  #bigplay p { color: var(--muted); font-size: 0.95rem; max-width: 420px; text-align: center; }
+  .panel {
+    position: absolute;
+    bottom: 1.2rem;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    justify-content: center;
+    background: rgba(10,16,28,0.85);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 0.6rem 0.8rem;
+    backdrop-filter: blur(8px);
+    z-index: 2;
+  }
+  .panel button {
+    background: rgba(255,255,255,0.05);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 9px;
+    padding: 0.45rem 0.95rem;
+    font-size: 0.86rem;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+    transition: background 0.15s, border-color 0.15s;
+  }
+  .panel button:hover { background: rgba(255,255,255,0.1); }
+  .panel button.active { background: rgba(96,165,250,0.25); border-color: #60a5fa; }
+  .nowplaying {
+    position: absolute;
+    top: 0.8rem;
+    left: 1.2rem;
+    color: var(--muted);
+    font-size: 0.8rem;
+    line-height: 1.8;
+    z-index: 2;
+    pointer-events: none;
+  }
+  .nowplaying b { color: var(--text); font-size: 1rem; }
+  .stats {
+    position: absolute;
+    top: 0.8rem;
+    right: 1.2rem;
+    color: var(--muted);
+    font-size: 0.76rem;
+    text-align: right;
+    line-height: 1.7;
+    z-index: 2;
+    pointer-events: none;
+  }
+</style>
+</head>
+<body>
+<header>
+  <a href="../">← Fable 5 Showcase</a>
+  <span class="title">ENDLESS <em>SYMPHONY</em></span>
+  <span style="width:110px"></span>
+</header>
+<div id="stage">
+  <canvas id="c"></canvas>
+  <div class="nowplaying" id="now"></div>
+  <div class="stats" id="stats"></div>
+  <button id="bigplay">
+    <span class="disc">▶</span>
+    <p>An infinite, never-repeating composition — chords, bass, melody and percussion
+    are all synthesized and arranged live by code. Press play.</p>
+  </button>
+  <div class="panel" id="panel" style="display:none">
+    <button id="toggle">⏸ Pause</button>
+    <button data-mood="0" class="active">🌅 Dawn</button>
+    <button data-mood="1">🌊 Drift</button>
+    <button data-mood="2">⚡ Pulse</button>
+    <button data-mood="3">🍃 Zen</button>
+    <button id="reseed">✦ New tune</button>
+  </div>
+</div>
+
+<script>
+'use strict';
+// =============================================================
+//  A generative music engine: every instrument is synthesized
+//  from raw oscillators and noise, and the composition itself —
+//  chord progressions, bass, melody, drums — is improvised on
+//  the fly from a seed. No samples, no loops, no repeats.
+// =============================================================
+
+// ---------------- seeded RNG ----------------
+function mulberry32(seed) {
+  let a = seed >>> 0;
+  return () => {
+    a |= 0; a = a + 0x6D2B79F5 | 0;
+    let t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+let seed = Math.floor(Math.random() * 1e6);
+let rand = mulberry32(seed);
+
+// ---------------- music theory ----------------
+const SCALES = {
+  major:      [0, 2, 4, 5, 7, 9, 11],
+  minor:      [0, 2, 3, 5, 7, 8, 10],
+  dorian:     [0, 2, 3, 5, 7, 9, 10],
+  pentatonic: [0, 2, 4, 7, 9]
+};
+const ROMAN = { major: ['I','ii','iii','IV','V','vi','vii°'], minor: ['i','ii°','III','iv','v','VI','VII'],
+                dorian: ['i','ii','III','IV','v','vi°','VII'], pentatonic: ['I','ii','iii','V','vi'] };
+const NOTE_NAMES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+const PROGRESSIONS = [[0,4,5,3], [0,5,3,4], [5,3,0,4], [0,3,5,4], [0,4,3,4], [5,4,0,3]];
+
+const MOODS = [
+  { name: 'Dawn',  scale: 'major',      root: 60, bpm: 78,  density: 0.45, drums: 0,   cutoff: 1500, hue: 35  },
+  { name: 'Drift', scale: 'dorian',     root: 62, bpm: 88,  density: 0.55, drums: 0.5, cutoff: 1200, hue: 200 },
+  { name: 'Pulse', scale: 'minor',      root: 57, bpm: 106, density: 0.72, drums: 1,   cutoff: 2000, hue: 285 },
+  { name: 'Zen',   scale: 'pentatonic', root: 64, bpm: 62,  density: 0.30, drums: 0,   cutoff: 950,  hue: 140 }
+];
+let moodIdx = 0;
+const mood = () => MOODS[moodIdx];
+
+const midi2f = m => 440 * Math.pow(2, (m - 69) / 12);
+function scaleNote(deg, oct = 0) {
+  const sc = SCALES[mood().scale];
+  const i = ((deg % sc.length) + sc.length) % sc.length;
+  return mood().root + sc[i] + 12 * (Math.floor(deg / sc.length) + oct);
+}
+function chordOf(deg) {
+  const third = mood().scale === 'pentatonic' ? 1 : 2;
+  return {
+    deg,
+    notes: [scaleNote(deg, -1), scaleNote(deg + third, -1), scaleNote(deg + third * 2, -1),
+            ...(rand() < 0.4 ? [scaleNote(deg + third * 3, -1)] : [])],
+    name: ROMAN[mood().scale][((deg % SCALES[mood().scale].length) + SCALES[mood().scale].length) % SCALES[mood().scale].length] || '?'
+  };
+}
+
+// ---------------- audio engine ----------------
+let AC = null, master, wetGain, delayNode, analyser, noiseBuf;
+function initAudio() {
+  AC = new (window.AudioContext || window.webkitAudioContext)();
+  const comp = AC.createDynamicsCompressor();
+  comp.threshold.value = -16; comp.ratio.value = 6;
+  master = AC.createGain();
+  master.gain.value = 0.7;
+  analyser = AC.createAnalyser();
+  analyser.fftSize = 512;
+  analyser.smoothingTimeConstant = 0.82;
+  master.connect(comp).connect(analyser).connect(AC.destination);
+
+  // procedural reverb impulse (stereo exponential-decay noise)
+  const len = AC.sampleRate * 2.4;
+  const ir = AC.createBuffer(2, len, AC.sampleRate);
+  for (let ch = 0; ch < 2; ch++) {
+    const d = ir.getChannelData(ch);
+    for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2.6);
+  }
+  const reverb = AC.createConvolver();
+  reverb.buffer = ir;
+  wetGain = AC.createGain();
+  wetGain.gain.value = 0.5;
+  wetGain.connect(reverb).connect(master);
+
+  // tempo-synced feedback delay
+  delayNode = AC.createDelay(2);
+  const fb = AC.createGain(); fb.gain.value = 0.34;
+  const dWet = AC.createGain(); dWet.gain.value = 0.4;
+  delayNode.connect(fb).connect(delayNode);
+  delayNode.connect(dWet).connect(wetGain);
+
+  // shared noise buffer for percussion
+  noiseBuf = AC.createBuffer(1, AC.sampleRate, AC.sampleRate);
+  const nd = noiseBuf.getChannelData(0);
+  for (let i = 0; i < nd.length; i++) nd[i] = Math.random() * 2 - 1;
+}
+
+function env(t, a, peak, d, sustain = 0, r = 0.01) {
+  const g = AC.createGain();
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(Math.max(0.001, peak), t + a);
+  g.gain.exponentialRampToValueAtTime(Math.max(0.0008, sustain || 0.0008), t + a + d);
+  return g;
+}
+
+// ---- instruments (all from raw oscillators / noise) ----
+function pad(t, notes, dur) {
+  for (const m of notes) {
+    for (const det of [-6, 6]) {
+      const o = AC.createOscillator();
+      o.type = 'sawtooth';
+      o.frequency.value = midi2f(m);
+      o.detune.value = det;
+      const f = AC.createBiquadFilter();
+      f.type = 'lowpass';
+      f.frequency.setValueAtTime(mood().cutoff * 0.5, t);
+      f.frequency.linearRampToValueAtTime(mood().cutoff, t + dur * 0.6);
+      f.frequency.linearRampToValueAtTime(mood().cutoff * 0.4, t + dur + 1.6);
+      const g = AC.createGain();
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.linearRampToValueAtTime(0.028, t + 1.1);
+      g.gain.setValueAtTime(0.028, t + dur);
+      g.gain.exponentialRampToValueAtTime(0.0008, t + dur + 1.8);
+      o.connect(f).connect(g);
+      g.connect(master); g.connect(wetGain);
+      o.start(t); o.stop(t + dur + 2);
+    }
+  }
+}
+function bass(t, m) {
+  const o = AC.createOscillator();
+  o.type = 'triangle';
+  o.frequency.value = midi2f(m - 24);
+  const f = AC.createBiquadFilter();
+  f.type = 'lowpass'; f.frequency.value = 320;
+  const g = env(t, 0.02, 0.30, 0.55);
+  o.connect(f).connect(g).connect(master);
+  o.start(t); o.stop(t + 0.8);
+}
+function pluck(t, m, vel) {
+  const f0 = midi2f(m);
+  const o1 = AC.createOscillator(); o1.type = 'triangle'; o1.frequency.value = f0;
+  const o2 = AC.createOscillator(); o2.type = 'sine'; o2.frequency.value = f0 * 2;
+  const bp = AC.createBiquadFilter();
+  bp.type = 'bandpass'; bp.frequency.value = f0 * 2.2; bp.Q.value = 0.9;
+  const g = env(t, 0.008, 0.16 * vel, 0.5);
+  const g2 = AC.createGain(); g2.gain.value = 0.35;
+  o1.connect(bp); o2.connect(g2).connect(bp);
+  bp.connect(g);
+  g.connect(master); g.connect(delayNode); g.connect(wetGain);
+  o1.start(t); o1.stop(t + 0.8);
+  o2.start(t); o2.stop(t + 0.8);
+}
+function kick(t) {
+  const o = AC.createOscillator();
+  o.frequency.setValueAtTime(130, t);
+  o.frequency.exponentialRampToValueAtTime(42, t + 0.11);
+  const g = env(t, 0.004, 0.7, 0.20);
+  o.connect(g).connect(master);
+  o.start(t); o.stop(t + 0.3);
+}
+function hat(t, vel) {
+  const src = AC.createBufferSource();
+  src.buffer = noiseBuf;
+  src.playbackRate.value = 1 + Math.random() * 0.2;
+  const f = AC.createBiquadFilter();
+  f.type = 'highpass'; f.frequency.value = 7800;
+  const g = env(t, 0.002, 0.10 * vel, 0.04);
+  src.connect(f).connect(g).connect(master);
+  src.start(t, Math.random()); src.stop(t + 0.08);
+}
+function snare(t) {
+  const src = AC.createBufferSource();
+  src.buffer = noiseBuf;
+  const f = AC.createBiquadFilter();
+  f.type = 'bandpass'; f.frequency.value = 1900; f.Q.value = 0.7;
+  const g = env(t, 0.003, 0.28, 0.13);
+  src.connect(f).connect(g);
+  g.connect(master); g.connect(wetGain);
+  src.start(t, Math.random()); src.stop(t + 0.25);
+}
+
+// ---------------- the composer ----------------
+let playing = false, step = 0, nextTime = 0, bar = 0;
+let progression = [], chord = null, melodyDeg = 0;
+let timer = null;
+const events = [];                          // for the visualizer
+
+function newProgression() {
+  const tpl = PROGRESSIONS[(rand() * PROGRESSIONS.length) | 0];
+  const max = SCALES[mood().scale].length;
+  progression = tpl.map(d => chordOf(d % max));
+}
+
+function scheduleStep(s, t) {
+  const stepDur = 60 / mood().bpm / 4;
+  const inBar = s % 16;
+  if (inBar === 0) {
+    if (bar % 4 === 0) newProgression();
+    chord = progression[bar % 4];
+    pad(t, chord.notes, stepDur * 16);
+    bass(t, chord.notes[0]);
+    events.push({ when: t, kind: 'chord', name: chord.name });
+    bar++;
+  }
+  if (inBar === 8) bass(t, chord.notes[0]);
+  if (inBar === 14 && rand() < 0.35) bass(t, chord.notes[0] + (rand() < 0.5 ? 0 : -5));
+
+  // melody: a constrained random walk over chord tones and scale neighbours
+  const d = mood().density;
+  if (inBar % 2 === 0 && rand() < d) {
+    if (rand() < 0.55) {
+      const pick = chord.notes[(rand() * chord.notes.length) | 0] + 24;
+      melodyDeg = pick;
+    } else {
+      melodyDeg += (rand() < 0.5 ? -1 : 1) * (rand() < 0.75 ? 1 : 2);
+      const lo = mood().root + 12, hi = mood().root + 31;
+      if (melodyDeg < lo) melodyDeg = lo + 2;
+      if (melodyDeg > hi) melodyDeg = hi - 3;
+    }
+    const vel = 0.5 + rand() * 0.5;
+    pluck(t, melodyDeg, vel);
+    events.push({ when: t, kind: 'note', midi: melodyDeg, vel });
+    if (rand() < d * 0.35) {                // 16th-note echo step
+      const m2 = melodyDeg + (rand() < 0.5 ? 2 : -2);
+      pluck(t + stepDur, m2, vel * 0.6);
+      events.push({ when: t + stepDur, kind: 'note', midi: m2, vel: vel * 0.6 });
+    }
+  }
+
+  // percussion
+  const dr = mood().drums;
+  if (dr > 0) {
+    if (inBar === 0 || inBar === 8) { kick(t); events.push({ when: t, kind: 'kick' }); }
+    if (dr >= 1 && inBar === 10 && rand() < 0.5) kick(t);
+    if (inBar === 4 || inBar === 12) { if (dr >= 1) { snare(t); events.push({ when: t, kind: 'kick' }); } }
+    if (inBar % 2 === 0) hat(t, inBar % 4 === 2 ? 1 : 0.5);
+    else if (dr >= 1 && rand() < 0.3) hat(t, 0.4);
+  }
+}
+
+function tick() {
+  const stepDur = 60 / mood().bpm / 4;
+  while (nextTime < AC.currentTime + 0.18) {
+    scheduleStep(step, nextTime);
+    step++;
+    nextTime += stepDur;
+  }
+}
+
+function start() {
+  if (!AC) initAudio();
+  AC.resume();
+  delayNode.delayTime.value = 60 / mood().bpm * 0.75;
+  playing = true;
+  step = 0; bar = 0;
+  nextTime = AC.currentTime + 0.1;
+  timer = setInterval(tick, 30);
+}
+function stop() {
+  playing = false;
+  clearInterval(timer);
+  if (AC) AC.suspend();
+}
+
+// ---------------- visualizer ----------------
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+let W = 0, H = 0;
+function resize() {
+  W = canvas.width = canvas.clientWidth * Math.min(devicePixelRatio || 1, 2);
+  H = canvas.height = canvas.clientHeight * Math.min(devicePixelRatio || 1, 2);
+}
+addEventListener('resize', resize);
+
+const ripples = [];
+let kickPulse = 0, chordName = '—';
+const freqData = new Uint8Array(256);
+
+function draw() {
+  ctx.fillStyle = 'rgba(7,8,16,0.26)';     // motion-blur fade
+  ctx.fillRect(0, 0, W, H);
+  const cx = W / 2, cy = H / 2;
+  const hue = mood().hue;
+  const base = Math.min(W, H);
+
+  // consume due events
+  if (AC) {
+    for (let i = events.length - 1; i >= 0; i--) {
+      const e = events[i];
+      if (e.when <= AC.currentTime) {
+        if (e.kind === 'note') {
+          const ang = (e.midi % 12) / 12 * Math.PI * 2 - Math.PI / 2;
+          const dist = base * (0.18 + ((e.midi / 12 | 0) % 4) * 0.07);
+          ripples.push({ x: cx + Math.cos(ang) * dist, y: cy + Math.sin(ang) * dist,
+                         r: 4, vr: 1.5 + e.vel * 2.5, a: 0.9, hue: hue + (e.midi % 12) * 8 });
+        } else if (e.kind === 'kick') kickPulse = 1;
+        else if (e.kind === 'chord') chordName = e.name;
+        events.splice(i, 1);
+      } else if (e.when > AC.currentTime + 5) events.splice(i, 1);
+    }
+  }
+
+  // radial spectrum
+  if (analyser) {
+    analyser.getByteFrequencyData(freqData);
+    const bars = 96;
+    const r0 = base * (0.13 + kickPulse * 0.012);
+    ctx.lineWidth = Math.max(2, base * 0.006);
+    ctx.lineCap = 'round';
+    for (let i = 0; i < bars; i++) {
+      const bin = Math.pow(i / bars, 1.6) * 200 | 0;
+      const vmag = freqData[bin] / 255;
+      const ang = i / bars * Math.PI * 2 - Math.PI / 2;
+      const len = vmag * vmag * base * 0.23;
+      ctx.strokeStyle = `hsla(${hue + i / bars * 60},85%,${55 + vmag * 25}%,${0.25 + vmag * 0.75})`;
+      ctx.beginPath();
+      ctx.moveTo(cx + Math.cos(ang) * r0, cy + Math.sin(ang) * r0);
+      ctx.lineTo(cx + Math.cos(ang) * (r0 + len), cy + Math.sin(ang) * (r0 + len));
+      ctx.stroke();
+    }
+    // center disc
+    ctx.beginPath();
+    ctx.arc(cx, cy, r0 * (0.82 + kickPulse * 0.1), 0, Math.PI * 2);
+    ctx.fillStyle = `hsla(${hue},70%,55%,${0.10 + kickPulse * 0.25})`;
+    ctx.fill();
+    ctx.font = `700 ${base * 0.05 | 0}px -apple-system, sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = `hsla(${hue},80%,78%,0.95)`;
+    ctx.fillText(chordName, cx, cy);
+  }
+
+  // note ripples
+  for (let i = ripples.length - 1; i >= 0; i--) {
+    const rp = ripples[i];
+    rp.r += rp.vr; rp.a *= 0.945;
+    if (rp.a < 0.02) { ripples.splice(i, 1); continue; }
+    ctx.beginPath();
+    ctx.arc(rp.x, rp.y, rp.r, 0, Math.PI * 2);
+    ctx.strokeStyle = `hsla(${rp.hue},90%,70%,${rp.a})`;
+    ctx.lineWidth = Math.max(1.5, base * 0.003);
+    ctx.stroke();
+  }
+  kickPulse *= 0.9;
+  requestAnimationFrame(draw);
+}
+
+// ---------------- UI ----------------
+const nowEl = document.getElementById('now');
+const statsEl = document.getElementById('stats');
+function syncNow() {
+  const m = mood();
+  nowEl.innerHTML = `<b>${m.name}</b><br>${NOTE_NAMES[m.root % 12]} ${m.scale} · ${m.bpm} bpm · seed ${seed}`;
+  statsEl.innerHTML = 'every sound synthesized live<br>from oscillators + noise · no samples';
+}
+
+document.getElementById('bigplay').addEventListener('click', () => {
+  document.getElementById('bigplay').style.display = 'none';
+  document.getElementById('panel').style.display = 'flex';
+  start();
+  syncNow();
+});
+document.getElementById('toggle').addEventListener('click', e => {
+  if (playing) { stop(); e.target.textContent = '▶ Play'; }
+  else { start(); e.target.textContent = '⏸ Pause'; }
+});
+document.querySelectorAll('[data-mood]').forEach(btn => btn.addEventListener('click', () => {
+  moodIdx = +btn.dataset.mood;
+  document.querySelectorAll('[data-mood]').forEach(b => b.classList.toggle('active', b === btn));
+  rand = mulberry32(seed);
+  if (playing) { stop(); start(); document.getElementById('toggle').textContent = '⏸ Pause'; }
+  syncNow();
+}));
+document.getElementById('reseed').addEventListener('click', () => {
+  seed = Math.floor(Math.random() * 1e6);
+  rand = mulberry32(seed);
+  if (playing) { stop(); start(); document.getElementById('toggle').textContent = '⏸ Pause'; }
+  syncNow();
+});
+
+resize();
+syncNow();
+requestAnimationFrame(draw);
+</script>
+</body>
+</html>

@@ -231,9 +231,9 @@
   <section class="hero">
     <span class="badge"><span class="dot"></span>Every line on this site was written by Claude Fable 5</span>
     <h1>What can <span class="gradient">Fable&nbsp;5</span> build?</h1>
-    <p class="sub">Six interactive demos — games, real-time 3D, SVG generation, generative art,
-      physics, and data visualization — built in pure HTML, CSS, and JavaScript.
-      No frameworks. No libraries. No build step.</p>
+    <p class="sub">Nine interactive demos — games, real-time 3D, path tracing, SVG generation,
+      generative art and music, physics, machine learning, and data visualization —
+      built in pure HTML, CSS, and JavaScript. No frameworks. No libraries. No build step.</p>
     <div class="cta-row">
       <a class="btn btn-primary" href="#demos">Explore the demos</a>
       <a class="btn btn-ghost" href="https://github.com/zhbchao/amazing_fable" target="_blank" rel="noopener">View source</a>
@@ -243,7 +243,7 @@
 
   <section class="section" id="demos">
     <div class="section-head">
-      <h2>Six capabilities, six demos</h2>
+      <h2>Nine capabilities, nine demos</h2>
       <p>Each one is a single self-contained file. Click any card to try it live.</p>
     </div>
     <div class="grid">
@@ -431,6 +431,120 @@
           <h3>Capability Graph</h3>
           <p>A live force-directed graph of what Fable 5 can do — springs, repulsion, and drag physics computed every frame on a canvas.</p>
           <span class="go">Explore the graph <span>→</span></span>
+        </div>
+      </a>
+
+      <a class="card" href="raytracer/">
+        <div class="preview" style="background:#0a0d16;">
+          <svg viewBox="0 0 300 190" preserveAspectRatio="xMidYMid slice">
+            <defs>
+              <radialGradient id="pg7a" cx="0.35" cy="0.3">
+                <stop offset="0" stop-color="#fff"/><stop offset="0.25" stop-color="#cfd8ea"/><stop offset="1" stop-color="#39435c"/>
+              </radialGradient>
+              <radialGradient id="pg7b" cx="0.35" cy="0.3">
+                <stop offset="0" stop-color="#ffd9a8"/><stop offset="1" stop-color="#b3502e"/>
+              </radialGradient>
+              <radialGradient id="pg7c" cx="0.35" cy="0.3">
+                <stop offset="0" stop-color="#9be8ff"/><stop offset="1" stop-color="#1d5e8a"/>
+              </radialGradient>
+              <linearGradient id="pg7sky" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0" stop-color="#1c2747"/><stop offset="1" stop-color="#4c3658"/>
+              </linearGradient>
+            </defs>
+            <rect width="300" height="135" fill="url(#pg7sky)"/>
+            <rect y="135" width="300" height="55" fill="#11141f"/>
+            <g opacity="0.65">
+              <rect x="0" y="135" width="38" height="14" fill="#2a3045"/><rect x="76" y="135" width="38" height="14" fill="#2a3045"/>
+              <rect x="152" y="135" width="38" height="14" fill="#2a3045"/><rect x="228" y="135" width="38" height="14" fill="#2a3045"/>
+              <rect x="38" y="149" width="38" height="14" fill="#2a3045"/><rect x="114" y="149" width="38" height="14" fill="#2a3045"/>
+              <rect x="190" y="149" width="38" height="14" fill="#2a3045"/><rect x="266" y="149" width="34" height="14" fill="#2a3045"/>
+            </g>
+            <circle cx="245" cy="42" r="14" fill="#ffe9b8" opacity="0.95"/>
+            <ellipse cx="150" cy="138" rx="44" ry="7" fill="#000" opacity="0.5"/>
+            <circle cx="150" cy="98" r="40" fill="url(#pg7a)"/>
+            <ellipse cx="82" cy="142" rx="22" ry="4" fill="#000" opacity="0.45"/>
+            <circle cx="82" cy="124" r="19" fill="url(#pg7b)"/>
+            <ellipse cx="222" cy="146" rx="18" ry="3.5" fill="#000" opacity="0.45"/>
+            <circle cx="222" cy="131" r="15" fill="url(#pg7c)">
+              <animate attributeName="cy" values="131;127;131" dur="4s" repeatCount="indefinite"/>
+            </circle>
+            <circle cx="138" cy="86" r="10" fill="#fff" opacity="0.55"/>
+          </svg>
+        </div>
+        <div class="body">
+          <span class="tag" style="background:rgba(250,204,21,0.14);color:#facc15;">Ray Tracing</span>
+          <h3>Little Path Tracer</h3>
+          <p>True global illumination computed ray by ray on your CPU — soft shadows, mirror bounces, glowing night lamps — converging live before your eyes.</p>
+          <span class="go">Trace some rays <span>→</span></span>
+        </div>
+      </a>
+
+      <a class="card" href="music/">
+        <div class="preview" style="background:#070d12;">
+          <svg viewBox="0 0 300 190" preserveAspectRatio="xMidYMid slice">
+            <g transform="translate(150,95)">
+              <g stroke-linecap="round">
+                <line x1="0" y1="-38" x2="0" y2="-62" stroke="#4ade80" stroke-width="4">
+                  <animate attributeName="y2" values="-62;-48;-70;-62" dur="1.2s" repeatCount="indefinite"/></line>
+                <line x1="27" y1="-27" x2="44" y2="-44" stroke="#5eead4" stroke-width="4">
+                  <animate attributeName="x2" values="44;38;50;44" dur="0.9s" repeatCount="indefinite"/></line>
+                <line x1="38" y1="0" x2="62" y2="0" stroke="#60a5fa" stroke-width="4">
+                  <animate attributeName="x2" values="62;50;70;62" dur="1.4s" repeatCount="indefinite"/></line>
+                <line x1="27" y1="27" x2="44" y2="44" stroke="#a78bfa" stroke-width="4">
+                  <animate attributeName="x2" values="44;52;40;44" dur="1.1s" repeatCount="indefinite"/></line>
+                <line x1="0" y1="38" x2="0" y2="62" stroke="#f472b6" stroke-width="4">
+                  <animate attributeName="y2" values="62;52;68;62" dur="1s" repeatCount="indefinite"/></line>
+                <line x1="-27" y1="27" x2="-44" y2="44" stroke="#fb923c" stroke-width="4">
+                  <animate attributeName="x2" values="-44;-50;-38;-44" dur="1.3s" repeatCount="indefinite"/></line>
+                <line x1="-38" y1="0" x2="-62" y2="0" stroke="#facc15" stroke-width="4">
+                  <animate attributeName="x2" values="-62;-70;-52;-62" dur="0.95s" repeatCount="indefinite"/></line>
+                <line x1="-27" y1="-27" x2="-44" y2="-44" stroke="#4ade80" stroke-width="4">
+                  <animate attributeName="x2" values="-44;-40;-52;-44" dur="1.25s" repeatCount="indefinite"/></line>
+              </g>
+              <circle r="26" fill="none" stroke="rgba(140,160,200,0.4)" stroke-width="1.5"/>
+              <text x="0" y="2" text-anchor="middle" dominant-baseline="middle" font-size="22" fill="#e8edf7">♪</text>
+              <circle r="32" fill="none" stroke="#4ade80" stroke-width="1" opacity="0.6">
+                <animate attributeName="r" values="32;52" dur="2s" repeatCount="indefinite"/>
+                <animate attributeName="opacity" values="0.6;0" dur="2s" repeatCount="indefinite"/>
+              </circle>
+            </g>
+          </svg>
+        </div>
+        <div class="body">
+          <span class="tag" style="background:rgba(74,222,128,0.14);color:#4ade80;">Generative Music</span>
+          <h3>Endless Symphony</h3>
+          <p>An infinite composition improvised live: chords, bass, melody, and drums all synthesized from raw oscillators — no samples, no loops, never repeats.</p>
+          <span class="go">Press play <span>→</span></span>
+        </div>
+      </a>
+
+      <a class="card" href="neural/">
+        <div class="preview" style="background:#0b0a14;">
+          <svg viewBox="0 0 300 190" preserveAspectRatio="xMidYMid slice">
+            <g stroke="rgba(140,160,200,0.3)" stroke-width="1" fill="none">
+              <path id="np1" d="M60,55 L150,40"/><path d="M60,55 L150,95"/><path d="M60,55 L150,150"/>
+              <path id="np2" d="M60,135 L150,40"/><path d="M60,135 L150,95"/><path d="M60,135 L150,150"/>
+              <path d="M150,40 L240,75"/><path id="np3" d="M150,95 L240,75"/><path d="M150,150 L240,75"/>
+              <path d="M150,40 L240,120"/><path d="M150,95 L240,120"/><path id="np4" d="M150,150 L240,120"/>
+            </g>
+            <circle cx="60" cy="55" r="11" fill="#f472b6"/>
+            <circle cx="60" cy="135" r="11" fill="#f472b6"/>
+            <circle cx="150" cy="40" r="11" fill="#a78bfa"/>
+            <circle cx="150" cy="95" r="11" fill="#a78bfa"/>
+            <circle cx="150" cy="150" r="11" fill="#a78bfa"/>
+            <circle cx="240" cy="75" r="11" fill="#facc15"/>
+            <circle cx="240" cy="120" r="11" fill="#facc15"/>
+            <circle r="4" fill="#fff"><animateMotion dur="1.6s" repeatCount="indefinite"><mpath href="#np1"/></animateMotion></circle>
+            <circle r="4" fill="#fff" opacity="0.8"><animateMotion dur="2.1s" repeatCount="indefinite"><mpath href="#np2"/></animateMotion></circle>
+            <circle r="4" fill="#fff" opacity="0.8"><animateMotion dur="1.3s" repeatCount="indefinite"><mpath href="#np3"/></animateMotion></circle>
+            <circle r="4" fill="#fff" opacity="0.7"><animateMotion dur="1.8s" repeatCount="indefinite"><mpath href="#np4"/></animateMotion></circle>
+          </svg>
+        </div>
+        <div class="body">
+          <span class="tag" style="background:rgba(244,114,182,0.14);color:#f472b6;">Machine Learning</span>
+          <h3>Watch It Learn</h3>
+          <p>A neural network — backprop and Adam written from scratch — trains live in your tab to paint a picture. Doodle your own and it learns that too.</p>
+          <span class="go">Train it <span>→</span></span>
         </div>
       </a>
 

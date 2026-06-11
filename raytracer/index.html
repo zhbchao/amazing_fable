@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Little Path Tracer — Fable 5 Showcase</title>
+<style>
+  :root { --bg: #06080f; --text: #e8edf7; --muted: #8b96ad; --border: rgba(140,160,200,0.18); }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.9rem 1.4rem;
+    z-index: 2;
+  }
+  header a { color: var(--muted); text-decoration: none; font-size: 0.9rem; }
+  header a:hover { color: var(--text); }
+  header .title { font-weight: 700; }
+  header .title em {
+    font-style: normal;
+    background: linear-gradient(90deg, #facc15, #f472b6);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  #stage { flex: 1; position: relative; display: flex; align-items: center; justify-content: center; }
+  canvas#view {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    image-rendering: auto;
+    cursor: grab;
+    touch-action: none;
+  }
+  canvas#view.dragging { cursor: grabbing; }
+  .panel {
+    position: absolute;
+    bottom: 1.2rem;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    justify-content: center;
+    background: rgba(10,16,28,0.85);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 0.6rem 0.8rem;
+    backdrop-filter: blur(8px);
+    z-index: 2;
+  }
+  .panel button {
+    background: rgba(255,255,255,0.05);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 9px;
+    padding: 0.45rem 0.95rem;
+    font-size: 0.86rem;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+    transition: background 0.15s, border-color 0.15s;
+  }
+  .panel button:hover { background: rgba(255,255,255,0.1); }
+  .panel button.active { background: rgba(250,204,21,0.22); border-color: #facc15; }
+  .stats {
+    position: absolute;
+    top: 0.8rem;
+    right: 1.2rem;
+    color: var(--muted);
+    font-size: 0.76rem;
+    text-align: right;
+    line-height: 1.7;
+    font-variant-numeric: tabular-nums;
+    z-index: 2;
+    pointer-events: none;
+  }
+  .hint {
+    position: absolute;
+    top: 0.8rem;
+    left: 1.2rem;
+    color: var(--muted);
+    font-size: 0.8rem;
+    line-height: 1.7;
+    z-index: 2;
+    pointer-events: none;
+  }
+</style>
+</head>
+<body>
+<header>
+  <a href="../">← Fable 5 Showcase</a>
+  <span class="title">LITTLE <em>PATH TRACER</em></span>
+  <span style="width:110px"></span>
+</header>
+<div id="stage">
+  <canvas id="view"></canvas>
+  <div class="hint">drag to orbit · scroll to dolly · hold still and watch the noise melt away<br>every pixel is a ray of light, bounced and averaged on your CPU</div>
+  <div class="stats" id="stats"></div>
+  <div class="panel">
+    <button data-sky="0" class="active">☀️ Noon</button>
+    <button data-sky="1">🌇 Sunset</button>
+    <button data-sky="2">🌙 Night</button>
+    <button id="shuffle">🎲 Shuffle scene</button>
+  </div>
+</div>
+
+<script>
+'use strict';
+// =============================================================
+//  A progressive path tracer in pure JavaScript. Global
+//  illumination, soft shadows, mirror + glossy materials,
+//  emissive night lamps — one jittered sample per pixel per
+//  frame, accumulated until the image converges.
+// =============================================================
+const view = document.getElementById('view');
+const vctx = view.getContext('2d');
+const RW = 300, RH = 188;                 // render resolution
+const buf = new Float32Array(RW * RH * 3);
+const img = new ImageData(RW, RH);
+const back = document.createElement('canvas');
+back.width = RW; back.height = RH;
+const bctx = back.getContext('2d');
+let spp = 0;                              // accumulated samples per pixel
+
+// ---------------- tiny vec3 on flat arrays ----------------
+function v(x, y, z) { return [x, y, z]; }
+const add = (a, b) => [a[0]+b[0], a[1]+b[1], a[2]+b[2]];
+const sub = (a, b) => [a[0]-b[0], a[1]-b[1], a[2]-b[2]];
+const mul = (a, s) => [a[0]*s, a[1]*s, a[2]*s];
+const mulv = (a, b) => [a[0]*b[0], a[1]*b[1], a[2]*b[2]];
+const dot = (a, b) => a[0]*b[0] + a[1]*b[1] + a[2]*b[2];
+const norm = a => { const l = Math.sqrt(dot(a, a)) || 1; return [a[0]/l, a[1]/l, a[2]/l]; };
+const reflect = (d, n) => sub(d, mul(n, 2 * dot(d, n)));
+
+// ---------------- scene ----------------
+let spheres = [];
+let seedN = 7;
+function rnd() { seedN = (seedN * 1103515245 + 12345) & 0x7fffffff; return seedN / 0x7fffffff; }
+
+const PALETTE = [
+  [0.95, 0.35, 0.45], [0.30, 0.75, 0.95], [0.98, 0.70, 0.25],
+  [0.55, 0.90, 0.55], [0.80, 0.55, 0.98], [0.95, 0.85, 0.80]
+];
+
+function buildScene() {
+  spheres = [
+    // one big mirror ball is always the centerpiece
+    { c: v(0, 1.05, 0), r: 1.05, type: 1, col: [0.95, 0.95, 0.97], gloss: 0, emit: null }
+  ];
+  for (let i = 0; i < 7; i++) {
+    let placed = false;
+    for (let tries = 0; tries < 60 && !placed; tries++) {
+      const r = 0.28 + rnd() * 0.5;
+      const ang = rnd() * Math.PI * 2;
+      const d = 1.7 + rnd() * 2.6;
+      const c = v(Math.cos(ang) * d, r, Math.sin(ang) * d);
+      let ok = true;
+      for (const s of spheres) {
+        const dd = sub(c, s.c);
+        if (Math.sqrt(dot(dd, dd)) < r + s.r + 0.12) { ok = false; break; }
+      }
+      if (!ok) continue;
+      const roll = rnd();
+      const col = PALETTE[(rnd() * PALETTE.length) | 0];
+      spheres.push({
+        c, r,
+        type: roll < 0.55 ? 0 : roll < 0.8 ? 2 : 1,   // diffuse | glossy | mirror
+        col,
+        gloss: 0.12 + rnd() * 0.2,
+        emit: null
+      });
+      placed = true;
+    }
+  }
+  // at night, two of the small spheres become glowing lamps
+  if (skyMode === 2) {
+    let lit = 0;
+    for (let i = 1; i < spheres.length && lit < 2; i++) {
+      if (spheres[i].type === 0) {
+        const col = PALETTE[(rnd() * PALETTE.length) | 0];
+        spheres[i].emit = mul(col, 9);
+        spheres[i].type = 0;
+        lit++;
+      }
+    }
+  }
+  resetAccum();
+}
+
+// sky / sun per mode
+const SKIES = [
+  { sun: norm(v(-0.45, 0.75, 0.35)), sunCol: [9.5, 8.8, 7.5], sunAng: 0.05,
+    horizon: [0.75, 0.85, 1.0], zenith: [0.25, 0.45, 0.85], ground: 0.9 },
+  { sun: norm(v(-0.85, 0.16, 0.2)), sunCol: [11, 5.5, 2.2], sunAng: 0.07,
+    horizon: [0.98, 0.55, 0.30], zenith: [0.25, 0.20, 0.45], ground: 0.65 },
+  { sun: norm(v(-0.5, 0.5, 0.3)), sunCol: [0.45, 0.55, 0.9], sunAng: 0.06,
+    horizon: [0.05, 0.07, 0.14], zenith: [0.01, 0.015, 0.04], ground: 0.35 }
+];
+let skyMode = 0;
+
+function skyColor(rd) {
+  const S = SKIES[skyMode];
+  const t = Math.max(0, rd[1]);
+  let col = [
+    S.horizon[0] + (S.zenith[0] - S.horizon[0]) * t,
+    S.horizon[1] + (S.zenith[1] - S.horizon[1]) * t,
+    S.horizon[2] + (S.zenith[2] - S.horizon[2]) * t
+  ];
+  const sd = dot(rd, S.sun);
+  if (sd > 0.9985) col = add(col, mul(S.sunCol, 2.5));            // sun disk
+  else if (sd > 0.99) col = add(col, mul(S.sunCol, 0.12));        // halo
+  return col;
+}
+
+// ---------------- intersection ----------------
+// returns [t, sphereIdx] — idx -1 = ground plane
+function intersect(ro, rd) {
+  let bestT = Infinity, bestI = -2;
+  if (rd[1] < -1e-6) {                     // plane y = 0
+    const t = -ro[1] / rd[1];
+    if (t > 1e-4) { bestT = t; bestI = -1; }
+  }
+  for (let i = 0; i < spheres.length; i++) {
+    const s = spheres[i];
+    const ox = ro[0]-s.c[0], oy = ro[1]-s.c[1], oz = ro[2]-s.c[2];
+    const b = ox*rd[0] + oy*rd[1] + oz*rd[2];
+    const cc = ox*ox + oy*oy + oz*oz - s.r*s.r;
+    const disc = b*b - cc;
+    if (disc < 0) continue;
+    const sq = Math.sqrt(disc);
+    let t = -b - sq;
+    if (t < 1e-4) t = -b + sq;
+    if (t > 1e-4 && t < bestT) { bestT = t; bestI = i; }
+  }
+  return [bestT, bestI];
+}
+
+function shadowed(p, ld) {
+  const [t, i] = intersect(p, ld);
+  if (i === -2) return false;
+  if (i >= 0 && spheres[i].emit) return false;   // lamps don't block their own kind much
+  return t < 60;
+}
+
+// cosine-weighted hemisphere sample around normal
+function cosineDir(n) {
+  const r1 = Math.random() * Math.PI * 2;
+  const r2 = Math.random();
+  const sq = Math.sqrt(r2);
+  // build tangent frame
+  const a = Math.abs(n[1]) < 0.95 ? v(0, 1, 0) : v(1, 0, 0);
+  const t1 = norm([a[1]*n[2]-a[2]*n[1], a[2]*n[0]-a[0]*n[2], a[0]*n[1]-a[1]*n[0]]);
+  const t2 = [n[1]*t1[2]-n[2]*t1[1], n[2]*t1[0]-n[0]*t1[2], n[0]*t1[1]-n[1]*t1[0]];
+  const x = Math.cos(r1) * sq, y = Math.sin(r1) * sq, z = Math.sqrt(1 - r2);
+  return norm([
+    t1[0]*x + t2[0]*y + n[0]*z,
+    t1[1]*x + t2[1]*y + n[1]*z,
+    t1[2]*x + t2[2]*y + n[2]*z
+  ]);
+}
+
+// ---------------- the path tracer ----------------
+function trace(ro, rd, depth) {
+  const [t, i] = intersect(ro, rd);
+  if (i === -2) return skyColor(rd);
+
+  const p = add(ro, mul(rd, t));
+  let n, albedo, type, gloss = 0, emit = null;
+  if (i === -1) {                          // checkerboard ground
+    n = v(0, 1, 0);
+    const g = SKIES[skyMode].ground;
+    const check = ((Math.floor(p[0] * 0.9) + Math.floor(p[2] * 0.9)) & 1) === 0;
+    albedo = check ? [0.85 * g, 0.85 * g, 0.9 * g] : [0.22 * g, 0.24 * g, 0.3 * g];
+    type = 0;
+  } else {
+    const s = spheres[i];
+    n = norm(sub(p, s.c));
+    albedo = s.col; type = s.type; gloss = s.gloss; emit = s.emit;
+  }
+  if (emit) return emit;
+
+  if (type === 1 || type === 2) {          // mirror / glossy
+    if (depth >= 3) return skyColor(rd);
+    let rdir = reflect(rd, n);
+    if (type === 2) {
+      rdir = norm(add(rdir, mul(cosineDir(n), gloss)));
+      if (dot(rdir, n) < 0) rdir = reflect(rdir, n);
+    }
+    const bounce = trace(add(p, mul(n, 1e-4)), rdir, depth + 1);
+    const tint = type === 1 ? albedo : add(mul(albedo, 0.55), [0.4, 0.4, 0.4]);
+    return mulv(bounce, tint);
+  }
+
+  // diffuse: direct sun light (sampled in a cone for soft shadows) ...
+  const S = SKIES[skyMode];
+  let out = [0, 0, 0];
+  const ld = norm(add(S.sun, mul(cosineDir(S.sun), S.sunAng * 6)));
+  const nl = dot(n, ld);
+  if (nl > 0 && !shadowed(add(p, mul(n, 1e-4)), ld)) {
+    out = add(out, mul(mulv(albedo, S.sunCol), nl * 0.22));
+  }
+  // ... plus one indirect GI bounce along a cosine-weighted direction
+  if (depth < 2) {
+    const gi = trace(add(p, mul(n, 1e-4)), cosineDir(n), depth + 1);
+    out = add(out, mulv(albedo, gi));
+  } else {
+    out = add(out, mulv(albedo, mul(skyColor(n), 0.5)));   // cheap sky term at the leaf
+  }
+  return out;
+}
+
+// ---------------- camera ----------------
+let camTheta = 0.6, camPhi = 0.32, camDist = 9.5;
+function render() {
+  const target = v(0, 0.9, 0);
+  const cp = Math.cos(camPhi), sp = Math.sin(camPhi);
+  const ct = Math.cos(camTheta), st = Math.sin(camTheta);
+  const ro = add(target, v(camDist * cp * st, camDist * sp, camDist * cp * ct));
+  const fwd = norm(sub(target, ro));
+  const right = norm([-fwd[2], 0, fwd[0]]);
+  const up = [right[1]*fwd[2]-right[2]*fwd[1], right[2]*fwd[0]-right[0]*fwd[2], right[0]*fwd[1]-right[1]*fwd[0]];
+  const fov = 0.62;
+
+  let k = 0;
+  for (let y = 0; y < RH; y++) {
+    for (let x = 0; x < RW; x++) {
+      const u = ((x + Math.random()) / RW * 2 - 1) * fov * (RW / RH);
+      const vv = (1 - (y + Math.random()) / RH * 2) * fov;
+      const rd = norm(add(fwd, add(mul(right, u), mul(up, vv))));
+      const c = trace(ro, rd, 0);
+      buf[k]   += c[0];
+      buf[k+1] += c[1];
+      buf[k+2] += c[2];
+      k += 3;
+    }
+  }
+  spp++;
+
+  // tonemap (reinhard-ish) + gamma, blit
+  const d = img.data;
+  let j = 0;
+  for (let i2 = 0; i2 < RW * RH * 3; i2 += 3) {
+    for (let ch = 0; ch < 3; ch++) {
+      const val = buf[i2 + ch] / spp * 0.8;
+      const tone = val / (1 + val);
+      d[j + ch] = Math.min(255, Math.pow(tone, 1 / 2.2) * 270);
+    }
+    d[j + 3] = 255;
+    j += 4;
+  }
+  bctx.putImageData(img, 0, 0);
+}
+
+function resetAccum() {
+  buf.fill(0);
+  spp = 0;
+}
+
+// ---------------- display ----------------
+function fit() {
+  view.width = view.clientWidth;
+  view.height = view.clientHeight;
+}
+addEventListener('resize', fit);
+
+let lastStats = 0, lastFrameMs = 0;
+const statsEl = document.getElementById('stats');
+function frame(now) {
+  const t0 = performance.now();
+  render();
+  lastFrameMs = performance.now() - t0;
+
+  // letterboxed blit, sharp upscale
+  const scale = Math.min(view.width / RW, view.height / RH);
+  const dw = RW * scale, dh = RH * scale;
+  vctx.fillStyle = '#06080f';
+  vctx.fillRect(0, 0, view.width, view.height);
+  vctx.imageSmoothingEnabled = true;
+  vctx.drawImage(back, (view.width - dw) / 2, (view.height - dh) / 2, dw, dh);
+
+  if (now - lastStats > 400) {
+    lastStats = now;
+    const rays = (RW * RH * spp / 1e6).toFixed(1);
+    statsEl.innerHTML =
+      `${RW}×${RH} · ${spp} samples/pixel<br>` +
+      `${rays}M primary rays accumulated<br>` +
+      `${lastFrameMs.toFixed(0)} ms/pass · single-threaded JS`;
+  }
+  requestAnimationFrame(frame);
+}
+
+// ---------------- interaction ----------------
+let dragging = false, lx = 0, ly = 0;
+function down(x, y) { dragging = true; lx = x; ly = y; view.classList.add('dragging'); }
+function move(x, y) {
+  if (!dragging) return;
+  camTheta -= (x - lx) * 0.006;
+  camPhi = Math.max(0.06, Math.min(1.3, camPhi + (y - ly) * 0.004));
+  lx = x; ly = y;
+  resetAccum();
+}
+function up() { dragging = false; view.classList.remove('dragging'); }
+view.addEventListener('mousedown', e => down(e.clientX, e.clientY));
+addEventListener('mousemove', e => move(e.clientX, e.clientY));
+addEventListener('mouseup', up);
+view.addEventListener('touchstart', e => { e.preventDefault(); down(e.touches[0].clientX, e.touches[0].clientY); }, { passive: false });
+view.addEventListener('touchmove', e => { e.preventDefault(); move(e.touches[0].clientX, e.touches[0].clientY); }, { passive: false });
+view.addEventListener('touchend', up);
+view.addEventListener('wheel', e => {
+  e.preventDefault();
+  camDist = Math.max(4, Math.min(20, camDist * (e.deltaY > 0 ? 1.07 : 0.93)));
+  resetAccum();
+}, { passive: false });
+
+document.querySelectorAll('[data-sky]').forEach(btn => btn.addEventListener('click', () => {
+  skyMode = +btn.dataset.sky;
+  document.querySelectorAll('[data-sky]').forEach(b => b.classList.toggle('active', b === btn));
+  buildScene();                            // re-roll lamps for night
+}));
+document.getElementById('shuffle').addEventListener('click', () => {
+  seedN = (Math.random() * 0x7fffffff) | 0;
+  buildScene();
+});
+
+fit();
+buildScene();
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

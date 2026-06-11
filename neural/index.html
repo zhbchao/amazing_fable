@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Watch It Learn — Fable 5 Showcase</title>
+<style>
+  :root { --bg: #080a12; --text: #e8edf7; --muted: #8b96ad; --border: rgba(140,160,200,0.18); }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    overflow-x: hidden;
+  }
+  header {
+    width: 100%;
+    max-width: 1000px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.9rem 1.2rem;
+  }
+  header a { color: var(--muted); text-decoration: none; font-size: 0.9rem; }
+  header a:hover { color: var(--text); }
+  header .title { font-weight: 700; }
+  header .title em {
+    font-style: normal;
+    background: linear-gradient(90deg, #f472b6, #facc15);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .boards {
+    display: flex;
+    gap: 1.4rem;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin-top: 0.4rem;
+  }
+  .board { text-align: center; }
+  .board .label {
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    color: var(--muted);
+    margin-bottom: 0.5rem;
+  }
+  .board canvas {
+    width: min(42vw, 310px);
+    height: min(42vw, 310px);
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    box-shadow: 0 14px 40px rgba(0,0,0,0.5);
+    background: #000;
+  }
+  #target.paint { cursor: crosshair; }
+  .meterrow {
+    display: flex;
+    align-items: center;
+    gap: 1.2rem;
+    margin-top: 1rem;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  #losschart {
+    width: min(88vw, 420px);
+    height: 56px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: rgba(10,16,28,0.6);
+  }
+  .stats { color: var(--muted); font-size: 0.8rem; line-height: 1.7; font-variant-numeric: tabular-nums; }
+  .stats b { color: var(--text); }
+  .controls {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin: 1.1rem 0 0.5rem;
+    max-width: 760px;
+  }
+  button {
+    background: rgba(255,255,255,0.05);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 0.5rem 1rem;
+    font-size: 0.86rem;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+    transition: background 0.15s, border-color 0.15s;
+  }
+  button:hover { background: rgba(255,255,255,0.1); }
+  button.active { background: rgba(244,114,182,0.24); border-color: #f472b6; }
+  .meta { color: var(--muted); font-size: 0.78rem; margin: 0.5rem 1rem 1.4rem; text-align: center; max-width: 640px; }
+</style>
+</head>
+<body>
+<header>
+  <a href="../">← Fable 5 Showcase</a>
+  <span class="title">WATCH IT <em>LEARN</em></span>
+  <span style="width:110px"></span>
+</header>
+
+<div class="boards">
+  <div class="board">
+    <div class="label">TARGET</div>
+    <canvas id="target" width="64" height="64"></canvas>
+  </div>
+  <div class="board">
+    <div class="label">WHAT THE NETWORK PAINTS</div>
+    <canvas id="output" width="64" height="64"></canvas>
+  </div>
+</div>
+
+<div class="meterrow">
+  <canvas id="losschart" width="420" height="56"></canvas>
+  <div class="stats" id="stats"></div>
+</div>
+
+<div class="controls">
+  <button data-t="0" class="active">🌅 Sunset</button>
+  <button data-t="1">🙂 Smiley</button>
+  <button data-t="2">✦ F5</button>
+  <button data-t="3">🌀 Spiral</button>
+  <button id="doodle">✏️ Doodle your own</button>
+  <button id="clear" style="display:none">🧹 Clear</button>
+  <button id="turbo">🚀 Turbo</button>
+  <button id="reset">↺ Reset brain</button>
+</div>
+<p class="meta">A real multilayer perceptron — forward pass, backpropagation and the Adam optimizer all hand-written
+in this page — is being trained <em>right now, in your tab,</em> to map pixel coordinates to colors.
+It starts knowing nothing and slowly paints its way to the target. Try doodling: it learns whatever you draw.</p>
+
+<script>
+'use strict';
+// =============================================================
+//  A neural network from scratch: an MLP with Fourier-feature
+//  inputs learns the function (x, y) → (r, g, b) of a target
+//  image, live. Hand-rolled forward pass, backprop, and Adam.
+// =============================================================
+const SIZE = 64, N = SIZE * SIZE;
+const KFREQ = [1, 2, 4, 8];                       // Fourier feature frequencies
+const IN = 2 + KFREQ.length * 4, H1 = 40, H2 = 40, OUT = 3;
+const BATCH = 256;
+
+// ---------------- the network ----------------
+function makeLayer(nIn, nOut) {
+  const W = new Float32Array(nIn * nOut);
+  const s = Math.sqrt(2 / nIn);
+  for (let i = 0; i < W.length; i++) W[i] = (Math.random() * 2 - 1) * s;
+  return {
+    W, b: new Float32Array(nOut), nIn, nOut,
+    gW: new Float32Array(nIn * nOut), gb: new Float32Array(nOut),
+    mW: new Float32Array(nIn * nOut), vW: new Float32Array(nIn * nOut),
+    mb: new Float32Array(nOut), vb: new Float32Array(nOut)
+  };
+}
+let L1, L2, L3, adamT;
+function resetNet() {
+  L1 = makeLayer(IN, H1); L2 = makeLayer(H1, H2); L3 = makeLayer(H2, OUT);
+  adamT = 0; steps = 0; lossEMA = 0.25; lossHist.length = 0;
+}
+const PARAMS = (IN * H1 + H1) + (H1 * H2 + H2) + (H2 * OUT + OUT);
+
+// precomputed Fourier features for every pixel
+const FEAT = new Float32Array(N * IN);
+for (let p = 0; p < N; p++) {
+  const x = (p % SIZE) / (SIZE - 1) * 2 - 1;
+  const y = ((p / SIZE) | 0) / (SIZE - 1) * 2 - 1;
+  let o = p * IN;
+  FEAT[o++] = x; FEAT[o++] = y;
+  for (const k of KFREQ) {
+    FEAT[o++] = Math.sin(Math.PI * k * x);
+    FEAT[o++] = Math.cos(Math.PI * k * x);
+    FEAT[o++] = Math.sin(Math.PI * k * y);
+    FEAT[o++] = Math.cos(Math.PI * k * y);
+  }
+}
+
+// scratch buffers (single sample)
+const a1 = new Float32Array(H1), a2 = new Float32Array(H2), a3 = new Float32Array(OUT);
+const d1 = new Float32Array(H1), d2 = new Float32Array(H2), d3 = new Float32Array(OUT);
+
+function forward(p) {
+  const f = p * IN;
+  for (let j = 0; j < H1; j++) {
+    let s = L1.b[j];
+    const wj = j * IN;
+    for (let i = 0; i < IN; i++) s += L1.W[wj + i] * FEAT[f + i];
+    a1[j] = Math.tanh(s);
+  }
+  for (let j = 0; j < H2; j++) {
+    let s = L2.b[j];
+    const wj = j * H1;
+    for (let i = 0; i < H1; i++) s += L2.W[wj + i] * a1[i];
+    a2[j] = Math.tanh(s);
+  }
+  for (let j = 0; j < OUT; j++) {
+    let s = L3.b[j];
+    const wj = j * H2;
+    for (let i = 0; i < H2; i++) s += L3.W[wj + i] * a2[i];
+    a3[j] = 1 / (1 + Math.exp(-s));
+  }
+}
+
+let steps = 0, lossEMA = 0.25;
+function trainBatch() {
+  L1.gW.fill(0); L1.gb.fill(0);
+  L2.gW.fill(0); L2.gb.fill(0);
+  L3.gW.fill(0); L3.gb.fill(0);
+  let loss = 0;
+  for (let b = 0; b < BATCH; b++) {
+    const p = (Math.random() * N) | 0;
+    forward(p);
+    // output delta: MSE + sigmoid derivative
+    for (let j = 0; j < OUT; j++) {
+      const err = a3[j] - targetData[p * 3 + j];
+      loss += err * err;
+      d3[j] = err * a3[j] * (1 - a3[j]);
+    }
+    // hidden deltas (tanh')
+    for (let i = 0; i < H2; i++) {
+      let s = 0;
+      for (let j = 0; j < OUT; j++) s += L3.W[j * H2 + i] * d3[j];
+      d2[i] = s * (1 - a2[i] * a2[i]);
+    }
+    for (let i = 0; i < H1; i++) {
+      let s = 0;
+      for (let j = 0; j < H2; j++) s += L2.W[j * H1 + i] * d2[j];
+      d1[i] = s * (1 - a1[i] * a1[i]);
+    }
+    // accumulate gradients
+    for (let j = 0; j < OUT; j++) {
+      const wj = j * H2;
+      for (let i = 0; i < H2; i++) L3.gW[wj + i] += d3[j] * a2[i];
+      L3.gb[j] += d3[j];
+    }
+    for (let j = 0; j < H2; j++) {
+      const wj = j * H1;
+      for (let i = 0; i < H1; i++) L2.gW[wj + i] += d2[j] * a1[i];
+      L2.gb[j] += d2[j];
+    }
+    const f = p * IN;
+    for (let j = 0; j < H1; j++) {
+      const wj = j * IN;
+      for (let i = 0; i < IN; i++) L1.gW[wj + i] += d1[j] * FEAT[f + i];
+      L1.gb[j] += d1[j];
+    }
+  }
+  adamStep(L1); adamStep(L2); adamStep(L3);
+  adamT++;
+  steps++;
+  lossEMA = lossEMA * 0.97 + (loss / BATCH / OUT) * 0.03;
+}
+
+const LR = 0.004, B1 = 0.9, B2 = 0.999, EPS = 1e-8;
+function adamStep(L) {
+  const t = adamT + 1;
+  const c1 = 1 - Math.pow(B1, t), c2 = 1 - Math.pow(B2, t);
+  for (let i = 0; i < L.W.length; i++) {
+    const g = L.gW[i] / BATCH;
+    L.mW[i] = B1 * L.mW[i] + (1 - B1) * g;
+    L.vW[i] = B2 * L.vW[i] + (1 - B2) * g * g;
+    L.W[i] -= LR * (L.mW[i] / c1) / (Math.sqrt(L.vW[i] / c2) + EPS);
+  }
+  for (let i = 0; i < L.b.length; i++) {
+    const g = L.gb[i] / BATCH;
+    L.mb[i] = B1 * L.mb[i] + (1 - B1) * g;
+    L.vb[i] = B2 * L.vb[i] + (1 - B2) * g * g;
+    L.b[i] -= LR * (L.mb[i] / c1) / (Math.sqrt(L.vb[i] / c2) + EPS);
+  }
+}
+
+// ---------------- targets ----------------
+const target = document.getElementById('target');
+const tctx = target.getContext('2d', { willReadFrequently: true });
+const targetData = new Float32Array(N * 3);
+
+function grabTarget() {
+  const d = tctx.getImageData(0, 0, SIZE, SIZE).data;
+  for (let p = 0; p < N; p++) {
+    targetData[p * 3]     = d[p * 4] / 255;
+    targetData[p * 3 + 1] = d[p * 4 + 1] / 255;
+    targetData[p * 3 + 2] = d[p * 4 + 2] / 255;
+  }
+}
+
+const TARGETS = [
+  function sunset() {
+    const g = tctx.createLinearGradient(0, 0, 0, SIZE);
+    g.addColorStop(0, '#2b1a5e'); g.addColorStop(0.55, '#e84d6f'); g.addColorStop(0.8, '#ffb05e');
+    tctx.fillStyle = g; tctx.fillRect(0, 0, SIZE, SIZE);
+    tctx.fillStyle = '#ffe9a8';
+    tctx.beginPath(); tctx.arc(40, 30, 9, 0, Math.PI * 2); tctx.fill();
+    tctx.fillStyle = '#1a1030';
+    tctx.beginPath();
+    tctx.moveTo(0, 64); tctx.lineTo(0, 46); tctx.lineTo(14, 32); tctx.lineTo(28, 45);
+    tctx.lineTo(42, 36); tctx.lineTo(58, 48); tctx.lineTo(64, 44); tctx.lineTo(64, 64);
+    tctx.closePath(); tctx.fill();
+  },
+  function smiley() {
+    tctx.fillStyle = '#101426'; tctx.fillRect(0, 0, SIZE, SIZE);
+    tctx.fillStyle = '#ffd23e';
+    tctx.beginPath(); tctx.arc(32, 32, 24, 0, Math.PI * 2); tctx.fill();
+    tctx.fillStyle = '#1a1a2e';
+    tctx.beginPath(); tctx.arc(24, 26, 4, 0, Math.PI * 2); tctx.fill();
+    tctx.beginPath(); tctx.arc(40, 26, 4, 0, Math.PI * 2); tctx.fill();
+    tctx.strokeStyle = '#1a1a2e'; tctx.lineWidth = 4; tctx.lineCap = 'round';
+    tctx.beginPath(); tctx.arc(32, 34, 12, 0.25 * Math.PI, 0.75 * Math.PI); tctx.stroke();
+  },
+  function f5() {
+    const g = tctx.createLinearGradient(0, 0, SIZE, SIZE);
+    g.addColorStop(0, '#0d1024'); g.addColorStop(1, '#1d1040');
+    tctx.fillStyle = g; tctx.fillRect(0, 0, SIZE, SIZE);
+    const tg = tctx.createLinearGradient(8, 0, 56, 64);
+    tg.addColorStop(0, '#7c6cff'); tg.addColorStop(0.5, '#2dd4bf'); tg.addColorStop(1, '#f472b6');
+    tctx.fillStyle = tg;
+    tctx.font = '900 38px -apple-system, sans-serif';
+    tctx.textAlign = 'center'; tctx.textBaseline = 'middle';
+    tctx.fillText('F5', 32, 35);
+  },
+  function spiral() {
+    tctx.fillStyle = '#0a0c18'; tctx.fillRect(0, 0, SIZE, SIZE);
+    for (let i = 0; i < 220; i++) {
+      const t = i / 220 * Math.PI * 7;
+      const r = 2 + t * 4.0;
+      tctx.fillStyle = `hsl(${i / 220 * 320},85%,60%)`;
+      tctx.beginPath();
+      tctx.arc(32 + Math.cos(t) * r * 0.62, 32 + Math.sin(t) * r * 0.62, 2.4, 0, Math.PI * 2);
+      tctx.fill();
+    }
+  }
+];
+
+// ---------------- doodle mode ----------------
+let painting = false, brushHue = 0, drawing = false;
+function setPaintMode(on) {
+  painting = on;
+  target.classList.toggle('paint', on);
+  document.getElementById('doodle').classList.toggle('active', on);
+  document.getElementById('clear').style.display = on ? '' : 'none';
+  document.querySelectorAll('[data-t]').forEach(b => b.classList.remove('active'));
+  if (on) {
+    tctx.fillStyle = '#0c0e1a'; tctx.fillRect(0, 0, SIZE, SIZE);
+    grabTarget();
+  }
+}
+function paintAt(e) {
+  const r = target.getBoundingClientRect();
+  const src = e.touches ? e.touches[0] : e;
+  const x = (src.clientX - r.left) / r.width * SIZE;
+  const y = (src.clientY - r.top) / r.height * SIZE;
+  brushHue = (brushHue + 2.4) % 360;
+  tctx.fillStyle = `hsl(${brushHue},85%,62%)`;
+  tctx.beginPath();
+  tctx.arc(x, y, 3.4, 0, Math.PI * 2);
+  tctx.fill();
+  grabTarget();
+}
+target.addEventListener('mousedown', e => { if (painting) { drawing = true; paintAt(e); } });
+target.addEventListener('mousemove', e => { if (painting && drawing) paintAt(e); });
+addEventListener('mouseup', () => { drawing = false; });
+target.addEventListener('touchstart', e => { if (painting) { e.preventDefault(); drawing = true; paintAt(e); } }, { passive: false });
+target.addEventListener('touchmove', e => { if (painting && drawing) { e.preventDefault(); paintAt(e); } }, { passive: false });
+target.addEventListener('touchend', () => { drawing = false; });
+
+// ---------------- render + loop ----------------
+const output = document.getElementById('output');
+const octx = output.getContext('2d');
+const outImg = new ImageData(SIZE, SIZE);
+
+function renderPrediction() {
+  const d = outImg.data;
+  for (let p = 0; p < N; p++) {
+    forward(p);
+    d[p * 4]     = a3[0] * 255;
+    d[p * 4 + 1] = a3[1] * 255;
+    d[p * 4 + 2] = a3[2] * 255;
+    d[p * 4 + 3] = 255;
+  }
+  octx.putImageData(outImg, 0, 0);
+}
+
+const lossHist = [];
+const chart = document.getElementById('losschart');
+const cctx = chart.getContext('2d');
+function drawChart() {
+  const w = chart.width, h = chart.height;
+  cctx.clearRect(0, 0, w, h);
+  if (lossHist.length < 2) return;
+  const max = Math.max(...lossHist, 0.02);
+  cctx.beginPath();
+  for (let i = 0; i < lossHist.length; i++) {
+    const x = i / (lossHist.length - 1) * (w - 8) + 4;
+    const y = h - 6 - (lossHist[i] / max) * (h - 14);
+    i ? cctx.lineTo(x, y) : cctx.moveTo(x, y);
+  }
+  cctx.strokeStyle = '#f472b6';
+  cctx.lineWidth = 1.6;
+  cctx.stroke();
+  cctx.fillStyle = '#8b96ad';
+  cctx.font = '9px -apple-system, sans-serif';
+  cctx.fillText('loss', 8, 12);
+}
+
+let turbo = false, batchesPerSec = 0, batchCount = 0, lastRate = performance.now();
+const statsEl = document.getElementById('stats');
+let frameN = 0;
+function loop() {
+  const budget = turbo ? 26 : 11;
+  const t0 = performance.now();
+  while (performance.now() - t0 < budget) {
+    trainBatch();
+    batchCount++;
+  }
+  renderPrediction();
+
+  frameN++;
+  if (frameN % 10 === 0) {
+    lossHist.push(lossEMA);
+    if (lossHist.length > 200) lossHist.shift();
+    drawChart();
+  }
+  const now = performance.now();
+  if (now - lastRate > 600) {
+    batchesPerSec = Math.round(batchCount * 1000 / (now - lastRate));
+    batchCount = 0; lastRate = now;
+    statsEl.innerHTML =
+      `<b>${PARAMS.toLocaleString()}</b> weights · <b>${(steps * BATCH).toLocaleString()}</b> examples seen<br>` +
+      `loss <b>${lossEMA.toFixed(4)}</b> · ${batchesPerSec} batches/s<br>` +
+      `MLP ${IN}→${H1}→${H2}→3 · Fourier features · Adam`;
+  }
+  requestAnimationFrame(loop);
+}
+
+// ---------------- UI ----------------
+document.querySelectorAll('[data-t]').forEach(btn => btn.addEventListener('click', () => {
+  setPaintMode(false);
+  document.querySelectorAll('[data-t]').forEach(b => b.classList.toggle('active', b === btn));
+  TARGETS[+btn.dataset.t]();
+  grabTarget();
+}));
+document.getElementById('doodle').addEventListener('click', () => setPaintMode(true));
+document.getElementById('clear').addEventListener('click', () => {
+  tctx.fillStyle = '#0c0e1a'; tctx.fillRect(0, 0, SIZE, SIZE);
+  grabTarget();
+});
+document.getElementById('turbo').addEventListener('click', e => {
+  turbo = !turbo;
+  e.target.classList.toggle('active', turbo);
+});
+document.getElementById('reset').addEventListener('click', resetNet);
+
+TARGETS[0]();
+grabTarget();
+resetNet();
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
