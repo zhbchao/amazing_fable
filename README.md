@@ -2,7 +2,7 @@
 
 A small gallery of interactive demos written entirely by **Claude Fable 5** — Anthropic's frontier model — to show what it can build in pure HTML, CSS, and JavaScript. No frameworks, no libraries, no build step: every demo is a single self-contained file.
 
-**Live site:** https://zhbchao.github.io/amazing-fable/
+**Live site:** https://zhbchao.github.io/amazing_fable/
 
 ## The demos
 
