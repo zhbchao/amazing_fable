@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Capability Graph — Fable 5 Showcase</title>
+<style>
+  :root { --bg: #080a13; --text: #e8edf7; --muted: #8b96ad; --border: rgba(140,160,200,0.18); }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.9rem 1.4rem;
+    z-index: 2;
+  }
+  header a { color: var(--muted); text-decoration: none; font-size: 0.9rem; }
+  header a:hover { color: var(--text); }
+  header .title { font-weight: 700; }
+  header .title em {
+    font-style: normal;
+    background: linear-gradient(90deg, #60a5fa, #7c6cff);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  #stage { flex: 1; position: relative; }
+  canvas { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; }
+  .hint {
+    position: absolute;
+    top: 0.8rem;
+    left: 1.2rem;
+    color: var(--muted);
+    font-size: 0.8rem;
+    line-height: 1.7;
+    pointer-events: none;
+    z-index: 2;
+  }
+  .legend {
+    position: absolute;
+    bottom: 1.2rem;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+    justify-content: center;
+    background: rgba(10,16,28,0.82);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 0.6rem 1.1rem;
+    backdrop-filter: blur(8px);
+    font-size: 0.8rem;
+    color: var(--muted);
+    z-index: 2;
+  }
+  .legend span { display: inline-flex; align-items: center; gap: 0.4rem; }
+  .legend i { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+</style>
+</head>
+<body>
+<header>
+  <a href="../">← Fable 5 Showcase</a>
+  <span class="title">CAPABILITY <em>GRAPH</em></span>
+  <span style="width:110px"></span>
+</header>
+<div id="stage">
+  <canvas id="c"></canvas>
+  <div class="hint">drag nodes to rearrange · hover to trace connections<br>springs + charge repulsion simulated every frame</div>
+  <div class="legend" id="legend"></div>
+</div>
+
+<script>
+'use strict';
+// ============================================================
+//  Force-directed graph from scratch: spring forces on edges,
+//  inverse-square charge repulsion between all node pairs,
+//  velocity Verlet integration, interactive dragging.
+// ============================================================
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+let W = 0, H = 0, DPR = 1;
+
+const GROUPS = {
+  hub:       { color: '#7c6cff', label: null },
+  coding:    { color: '#2dd4bf', label: 'Coding' },
+  reasoning: { color: '#60a5fa', label: 'Reasoning' },
+  creative:  { color: '#f472b6', label: 'Creative' },
+  agents:    { color: '#fb923c', label: 'Agentic' },
+  analysis:  { color: '#facc15', label: 'Analysis' },
+  comms:     { color: '#4ade80', label: 'Communication' }
+};
+
+const DATA = {
+  name: 'Claude Fable 5',
+  children: [
+    { group: 'coding',    name: 'Coding',        leaves: ['Full-stack apps', 'Debugging', 'Code review', 'Refactoring', '50+ languages'] },
+    { group: 'reasoning', name: 'Reasoning',     leaves: ['Mathematics', 'Logic puzzles', 'Long-horizon planning', 'Step-by-step proofs'] },
+    { group: 'creative',  name: 'Creative',      leaves: ['Fiction & poetry', 'Game design', 'Generative art', 'Worldbuilding'] },
+    { group: 'agents',    name: 'Agentic',       leaves: ['Tool use', 'Computer use', 'Multi-step tasks', 'MCP integrations'] },
+    { group: 'analysis',  name: 'Analysis',      leaves: ['Data visualization', 'Research synthesis', 'Vision & documents', 'Forecast modeling'] },
+    { group: 'comms',     name: 'Communication', leaves: ['Translation', 'Summarization', 'Teaching', 'Technical writing'] }
+  ]
+};
+
+// ---- build node / edge lists ----
+const nodes = [], edges = [];
+function addNode(name, group, kind) {
+  nodes.push({
+    name, group, kind,
+    x: 0, y: 0, vx: 0, vy: 0,
+    r: kind === 'hub' ? 30 : kind === 'cat' ? 16 : 7
+  });
+  return nodes.length - 1;
+}
+const hubIdx = addNode(DATA.name, 'hub', 'hub');
+for (const cat of DATA.children) {
+  const ci = addNode(cat.name, cat.group, 'cat');
+  edges.push({ a: hubIdx, b: ci, rest: 170 });
+  for (const leaf of cat.leaves) {
+    const li = addNode(leaf, cat.group, 'leaf');
+    edges.push({ a: ci, b: li, rest: 78 });
+  }
+}
+// a few cross-links to make the layout interesting
+function link(n1, n2, rest) {
+  const a = nodes.findIndex(n => n.name === n1);
+  const b = nodes.findIndex(n => n.name === n2);
+  if (a > -1 && b > -1) edges.push({ a, b, rest });
+}
+link('Generative art', 'Data visualization', 130);
+link('Game design', 'Full-stack apps', 130);
+link('Multi-step tasks', 'Long-horizon planning', 130);
+link('Technical writing', 'Code review', 130);
+
+function scatter() {
+  for (let i = 0; i < nodes.length; i++) {
+    const a = i / nodes.length * Math.PI * 2;
+    const r = nodes[i].kind === 'hub' ? 0 : nodes[i].kind === 'cat' ? 140 : 240;
+    nodes[i].x = W / 2 + Math.cos(a) * r + (Math.random() - 0.5) * 40;
+    nodes[i].y = H / 2 + Math.sin(a) * r + (Math.random() - 0.5) * 40;
+  }
+}
+
+// ---- physics ----
+function step() {
+  // charge repulsion, O(n^2) — fine for this graph size
+  for (let i = 0; i < nodes.length; i++) {
+    for (let j = i + 1; j < nodes.length; j++) {
+      const a = nodes[i], b = nodes[j];
+      let dx = b.x - a.x, dy = b.y - a.y;
+      let d2 = dx * dx + dy * dy;
+      if (d2 < 1) { dx = Math.random() - 0.5; dy = Math.random() - 0.5; d2 = 1; }
+      const d = Math.sqrt(d2);
+      const f = Math.min(12, 5200 / d2);
+      const fx = dx / d * f, fy = dy / d * f;
+      a.vx -= fx; a.vy -= fy;
+      b.vx += fx; b.vy += fy;
+    }
+  }
+  // springs
+  for (const e of edges) {
+    const a = nodes[e.a], b = nodes[e.b];
+    const dx = b.x - a.x, dy = b.y - a.y;
+    const d = Math.hypot(dx, dy) || 1;
+    const f = (d - e.rest) * 0.012;
+    const fx = dx / d * f, fy = dy / d * f;
+    a.vx += fx; a.vy += fy;
+    b.vx -= fx; b.vy -= fy;
+  }
+  // gentle pull to center + integrate
+  for (const n of nodes) {
+    n.vx += (W / 2 - n.x) * 0.0012;
+    n.vy += (H / 2 - n.y) * 0.0012;
+    if (n === dragNode) { n.vx = 0; n.vy = 0; continue; }
+    n.vx *= 0.86; n.vy *= 0.86;
+    n.x += n.vx; n.y += n.vy;
+    n.x = Math.max(n.r + 4, Math.min(W - n.r - 4, n.x));
+    n.y = Math.max(n.r + 4, Math.min(H - n.r - 4, n.y));
+  }
+}
+
+// ---- render ----
+let hoverNode = null;
+function neighbors(n) {
+  const set = new Set([n]);
+  for (const e of edges) {
+    if (nodes[e.a] === n) set.add(nodes[e.b]);
+    if (nodes[e.b] === n) set.add(nodes[e.a]);
+  }
+  return set;
+}
+
+function draw() {
+  ctx.fillStyle = '#080a13';
+  ctx.fillRect(0, 0, W, H);
+  const hl = hoverNode ? neighbors(hoverNode) : null;
+
+  // edges
+  for (const e of edges) {
+    const a = nodes[e.a], b = nodes[e.b];
+    const lit = hl && hl.has(a) && hl.has(b) && (a === hoverNode || b === hoverNode);
+    ctx.strokeStyle = lit
+      ? GROUPS[(a.kind === 'leaf' ? a : b).group].color
+      : 'rgba(140,160,200,0.16)';
+    ctx.lineWidth = lit ? 1.8 : 1;
+    ctx.globalAlpha = hl && !lit ? 0.35 : 1;
+    ctx.beginPath();
+    ctx.moveTo(a.x, a.y);
+    ctx.lineTo(b.x, b.y);
+    ctx.stroke();
+  }
+  ctx.globalAlpha = 1;
+
+  // nodes
+  for (const n of nodes) {
+    const c = GROUPS[n.group].color;
+    const dim = hl && !hl.has(n);
+    ctx.globalAlpha = dim ? 0.25 : 1;
+    ctx.shadowColor = c;
+    ctx.shadowBlur = n === hoverNode ? 24 : n.kind === 'hub' ? 18 : 8;
+    ctx.fillStyle = c;
+    ctx.beginPath();
+    ctx.arc(n.x, n.y, n.r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+    if (n.kind !== 'leaf') {
+      ctx.fillStyle = 'rgba(8,10,19,0.85)';
+      ctx.beginPath();
+      ctx.arc(n.x, n.y, n.r - 3, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  // labels
+  ctx.textAlign = 'center';
+  for (const n of nodes) {
+    const dim = hl && !hl.has(n);
+    if (n.kind === 'hub') {
+      ctx.fillStyle = '#fff';
+      ctx.font = '700 13px -apple-system, sans-serif';
+      ctx.fillText('Claude', n.x, n.y - 3);
+      ctx.fillText('Fable 5', n.x, n.y + 11);
+    } else if (n.kind === 'cat') {
+      ctx.globalAlpha = dim ? 0.3 : 1;
+      ctx.fillStyle = GROUPS[n.group].color;
+      ctx.font = '700 12px -apple-system, sans-serif';
+      ctx.fillText(n.name, n.x, n.y - n.r - 7);
+    } else {
+      const lit = hl && hl.has(n);
+      ctx.globalAlpha = hl ? (lit ? 1 : 0.15) : 0.65;
+      ctx.fillStyle = lit ? '#fff' : '#aeb8cc';
+      ctx.font = `${lit ? '600 ' : ''}11px -apple-system, sans-serif`;
+      ctx.fillText(n.name, n.x, n.y - n.r - 5);
+    }
+    ctx.globalAlpha = 1;
+  }
+}
+
+// ---- input ----
+let dragNode = null;
+function pick(x, y) {
+  let best = null, bd = 1e9;
+  for (const n of nodes) {
+    const d = (n.x - x) ** 2 + (n.y - y) ** 2;
+    if (d < Math.max(n.r + 12, 18) ** 2 && d < bd) { bd = d; best = n; }
+  }
+  return best;
+}
+function pos(e) {
+  const rect = canvas.getBoundingClientRect();
+  const src = e.touches ? e.touches[0] : e;
+  return [src.clientX - rect.left, src.clientY - rect.top];
+}
+canvas.addEventListener('mousedown', e => { const [x, y] = pos(e); dragNode = pick(x, y); });
+canvas.addEventListener('mousemove', e => {
+  const [x, y] = pos(e);
+  if (dragNode) { dragNode.x = x; dragNode.y = y; }
+  else hoverNode = pick(x, y);
+  canvas.style.cursor = (dragNode || hoverNode) ? 'grab' : 'default';
+});
+addEventListener('mouseup', () => { dragNode = null; });
+canvas.addEventListener('touchstart', e => { e.preventDefault(); const [x, y] = pos(e); dragNode = pick(x, y); hoverNode = dragNode; }, { passive: false });
+canvas.addEventListener('touchmove', e => { e.preventDefault(); const [x, y] = pos(e); if (dragNode) { dragNode.x = x; dragNode.y = y; } }, { passive: false });
+canvas.addEventListener('touchend', () => { dragNode = null; hoverNode = null; });
+
+// ---- legend ----
+document.getElementById('legend').innerHTML = Object.values(GROUPS)
+  .filter(g => g.label)
+  .map(g => `<span><i style="background:${g.color}"></i>${g.label}</span>`)
+  .join('');
+
+// ---- main ----
+function resize() {
+  DPR = Math.min(devicePixelRatio || 1, 2);
+  W = canvas.clientWidth; H = canvas.clientHeight;
+  canvas.width = W * DPR; canvas.height = H * DPR;
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+}
+addEventListener('resize', resize);
+resize();
+scatter();
+(function loop() {
+  step();
+  draw();
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Infinite Landscapes — Fable 5 Showcase</title>
+<style>
+  :root { --bg: #0b0f1c; --text: #e8edf7; --muted: #8b96ad; --border: rgba(140,160,200,0.18); }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  header {
+    width: 100%;
+    max-width: 1000px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.9rem 1.2rem;
+  }
+  header a { color: var(--muted); text-decoration: none; font-size: 0.9rem; }
+  header a:hover { color: var(--text); }
+  header .title { font-weight: 700; }
+  header .title em {
+    font-style: normal;
+    background: linear-gradient(90deg, #a78bfa, #f472b6);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  #frame {
+    width: min(94vw, 960px);
+    border-radius: 16px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    box-shadow: 0 18px 60px rgba(0,0,0,0.55);
+    line-height: 0;
+    cursor: pointer;
+  }
+  #frame svg { width: 100%; height: auto; }
+  .controls {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin: 1.1rem 0 0.4rem;
+  }
+  button {
+    background: rgba(255,255,255,0.05);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 0.55rem 1.1rem;
+    font-size: 0.88rem;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+    transition: background 0.15s, border-color 0.15s;
+  }
+  button:hover { background: rgba(255,255,255,0.1); }
+  button.active { background: rgba(167,139,250,0.28); border-color: #a78bfa; }
+  button.primary {
+    background: linear-gradient(100deg, #7c6cff, #a78bfa);
+    border: none;
+  }
+  button.primary:hover { filter: brightness(1.15); }
+  .meta { color: var(--muted); font-size: 0.8rem; margin: 0.6rem 0 1.4rem; text-align: center; }
+  .meta code { color: #a78bfa; }
+</style>
+</head>
+<body>
+<header>
+  <a href="../">← Fable 5 Showcase</a>
+  <span class="title">INFINITE <em>LANDSCAPES</em></span>
+  <span style="width:110px"></span>
+</header>
+
+<div id="frame" title="Click for a new scene"></div>
+<div class="controls">
+  <button class="primary" id="regen">✦ New scene</button>
+  <button data-time="auto" class="active">Auto</button>
+  <button data-time="dawn">Dawn</button>
+  <button data-time="day">Day</button>
+  <button data-time="dusk">Dusk</button>
+  <button data-time="night">Night</button>
+  <button id="download">⬇ Download SVG</button>
+</div>
+<p class="meta">Every scene is a brand-new hand-assembled SVG document — gradients, ridgelines, weather,
+  wildlife and SMIL animation — built from seed <code id="seed">…</code>. The download is the exact markup you see.</p>
+
+<script>
+'use strict';
+// ============================================================
+//  Procedural SVG landscape generator.
+//  A seeded RNG drives palette, terrain, sky and wildlife; the
+//  output is a complete standalone animated .svg document.
+// ============================================================
+const VW = 960, VH = 540;
+
+// --- seeded RNG (mulberry32) ---
+function rng(seed) {
+  let a = seed >>> 0;
+  return () => {
+    a |= 0; a = a + 0x6D2B79F5 | 0;
+    let t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+
+// --- color helpers ---
+function hexToRgb(h) {
+  return [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
+}
+function mix(h1, h2, t) {
+  const a = hexToRgb(h1), b = hexToRgb(h2);
+  const c = a.map((v, i) => Math.round(v + (b[i] - v) * t));
+  return `rgb(${c[0]},${c[1]},${c[2]})`;
+}
+
+const PALETTES = {
+  dawn:  { sky: ['#1d1440', '#6d3a7e', '#d96a73', '#f7b267'], orb: '#ffe0a8', orbGlow: '#ff9e6d',
+           far: '#8a6a9e', near: '#241a3d', cloud: '#f7c9a8', stars: 0.25, birds: '#2a1f3d' },
+  day:   { sky: ['#2f6fd0', '#6fb1ef', '#c9e8ff', '#eef7ff'], orb: '#fff6c9', orbGlow: '#ffe98a',
+           far: '#86aec6', near: '#1c3a4d', cloud: '#ffffff', stars: 0,    birds: '#1c2f3d' },
+  dusk:  { sky: ['#141233', '#4d2a6e', '#b8486e', '#ff9e6d'], orb: '#ffb36b', orbGlow: '#ff7e5f',
+           far: '#7e5a8a', near: '#170f2e', cloud: '#e8a8b8', stars: 0.5,  birds: '#170f28' },
+  night: { sky: ['#03040c', '#0a1126', '#16234d', '#23355c'], orb: '#e9eef8', orbGlow: '#aebfdd',
+           far: '#3d4d77', near: '#05070f', cloud: '#2c3a5e', stars: 1,    birds: null }
+};
+
+// --- 1D value noise for ridgelines ---
+function ridgeLine(rand, segs, amp, yBase, rough) {
+  const anchors = [];
+  const n = 4 + Math.floor(rand() * 3);
+  for (let i = 0; i <= n; i++) anchors.push((rand() - 0.5) * 2);
+  const pts = [];
+  for (let i = 0; i <= segs; i++) {
+    const x = i / segs;
+    const fi = x * n;
+    const i0 = Math.floor(fi), f = fi - i0;
+    const s = f * f * (3 - 2 * f);                       // smoothstep interpolation
+    let y = anchors[i0] * (1 - s) + anchors[Math.min(i0 + 1, n)] * s;
+    y += (rand() - 0.5) * rough;                          // high-frequency jitter
+    pts.push([x * VW, yBase + y * amp]);
+  }
+  return pts;
+}
+function ridgePath(pts) {
+  let d = `M0,${VH} L${pts[0][0].toFixed(1)},${pts[0][1].toFixed(1)}`;
+  for (let i = 1; i < pts.length; i++) d += ` L${pts[i][0].toFixed(1)},${pts[i][1].toFixed(1)}`;
+  return d + ` L${VW},${VH} Z`;
+}
+
+function generate(seed, timeKey) {
+  const rand = rng(seed);
+  const keys = Object.keys(PALETTES);
+  const time = timeKey === 'auto' ? keys[Math.floor(rand() * keys.length)] : timeKey;
+  const P = PALETTES[time];
+  let s = '';
+
+  // ---- defs: sky gradient + orb glow ----
+  s += `<defs>`;
+  s += `<linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">`;
+  P.sky.forEach((c, i) => s += `<stop offset="${(i / (P.sky.length - 1)).toFixed(2)}" stop-color="${c}"/>`);
+  s += `</linearGradient>`;
+  s += `<radialGradient id="glow"><stop offset="0" stop-color="${P.orbGlow}" stop-opacity="0.55"/>` +
+       `<stop offset="1" stop-color="${P.orbGlow}" stop-opacity="0"/></radialGradient>`;
+  s += `</defs>`;
+  s += `<rect width="${VW}" height="${VH}" fill="url(#sky)"/>`;
+
+  // ---- stars ----
+  if (P.stars > 0) {
+    const n = Math.floor(40 + rand() * 60) * P.stars;
+    for (let i = 0; i < n; i++) {
+      const x = (rand() * VW).toFixed(0), y = (rand() * VH * 0.55).toFixed(0);
+      const r = (0.5 + rand() * 1.3).toFixed(1);
+      const o = (0.3 + rand() * 0.7).toFixed(2);
+      s += `<circle cx="${x}" cy="${y}" r="${r}" fill="#fff" opacity="${o}">` +
+           `<animate attributeName="opacity" values="${o};${(o * 0.25).toFixed(2)};${o}" ` +
+           `dur="${(1.5 + rand() * 3).toFixed(1)}s" repeatCount="indefinite"/></circle>`;
+    }
+  }
+
+  // ---- sun / moon ----
+  const ox = VW * (0.15 + rand() * 0.7), oy = VH * (0.12 + rand() * 0.25), or_ = 26 + rand() * 22;
+  s += `<circle cx="${ox.toFixed(0)}" cy="${oy.toFixed(0)}" r="${(or_ * 3.2).toFixed(0)}" fill="url(#glow)">` +
+       `<animate attributeName="r" values="${(or_*3.2).toFixed(0)};${(or_*3.8).toFixed(0)};${(or_*3.2).toFixed(0)}" dur="5s" repeatCount="indefinite"/></circle>`;
+  s += `<circle cx="${ox.toFixed(0)}" cy="${oy.toFixed(0)}" r="${or_.toFixed(0)}" fill="${P.orb}"/>`;
+  if (time === 'night') {  // crescent shadow
+    s += `<circle cx="${(ox + or_ * 0.38).toFixed(0)}" cy="${(oy - or_ * 0.22).toFixed(0)}" r="${(or_ * 0.86).toFixed(0)}" fill="${P.sky[1]}" opacity="0.92"/>`;
+    // craters
+    for (let i = 0; i < 3; i++) {
+      s += `<circle cx="${(ox - or_ * (0.2 + rand() * 0.35)).toFixed(0)}" cy="${(oy + or_ * (rand() * 0.5 - 0.1)).toFixed(0)}" ` +
+           `r="${(or_ * (0.07 + rand() * 0.08)).toFixed(1)}" fill="#c3cede" opacity="0.6"/>`;
+    }
+  }
+
+  // ---- clouds ----
+  const nClouds = Math.floor(rand() * 4) + (time === 'night' ? 0 : 1);
+  for (let i = 0; i < nClouds; i++) {
+    const cx = rand() * VW, cy = VH * (0.1 + rand() * 0.3), sc = 0.6 + rand() * 0.9;
+    const drift = 18 + rand() * 35, dur = 14 + rand() * 18;
+    const op = time === 'night' ? 0.5 : 0.85;
+    s += `<g opacity="${op}"><g transform="translate(${cx.toFixed(0)},${cy.toFixed(0)}) scale(${sc.toFixed(2)})">`;
+    const puffs = 3 + Math.floor(rand() * 3);
+    for (let p = 0; p < puffs; p++) {
+      s += `<ellipse cx="${(p * 26 - puffs * 13).toFixed(0)}" cy="${((rand() - 0.5) * 10).toFixed(0)}" ` +
+           `rx="${(24 + rand() * 16).toFixed(0)}" ry="${(10 + rand() * 7).toFixed(0)}" fill="${P.cloud}"/>`;
+    }
+    s += `</g><animateTransform attributeName="transform" type="translate" ` +
+         `values="0,0; ${drift.toFixed(0)},0; 0,0" dur="${dur.toFixed(0)}s" repeatCount="indefinite"/></g>`;
+  }
+
+  // ---- mountain ridges, back to front ----
+  const LAYERS = 5;
+  for (let L = 0; L < LAYERS; L++) {
+    const t = L / (LAYERS - 1);
+    const yBase = VH * (0.52 + t * 0.30);
+    const amp = 28 + t * 46;
+    const pts = ridgeLine(rand, 96, amp, yBase, 1 + t * 3);
+    const col = mix(P.far, P.near, Math.pow(t, 0.8));
+    s += `<path d="${ridgePath(pts)}" fill="${col}"/>`;
+
+    // pine silhouettes on the nearest two ridges
+    if (L >= LAYERS - 2) {
+      const nTrees = 6 + Math.floor(rand() * 10);
+      for (let k = 0; k < nTrees; k++) {
+        const idx = Math.floor(rand() * (pts.length - 1));
+        const [tx, ty] = pts[idx];
+        const th = 14 + rand() * 22 * (0.6 + t * 0.5);
+        s += `<path d="M${tx.toFixed(0)},${(ty - th).toFixed(0)} L${(tx - th * 0.32).toFixed(1)},${ty.toFixed(0)} L${(tx + th * 0.32).toFixed(1)},${ty.toFixed(0)} Z" fill="${col}"/>`;
+      }
+    }
+  }
+
+  // ---- birds ----
+  if (P.birds) {
+    const nBirds = 2 + Math.floor(rand() * 4);
+    const bx = VW * (0.2 + rand() * 0.5), by = VH * (0.15 + rand() * 0.2);
+    for (let i = 0; i < nBirds; i++) {
+      const x = bx + (rand() - 0.5) * 130, y = by + (rand() - 0.5) * 60, w = 7 + rand() * 6;
+      s += `<path d="M${(x - w).toFixed(0)},${y.toFixed(0)} Q${(x - w / 2).toFixed(0)},${(y - w * 0.8).toFixed(0)} ${x.toFixed(0)},${y.toFixed(0)} ` +
+           `Q${(x + w / 2).toFixed(0)},${(y - w * 0.8).toFixed(0)} ${(x + w).toFixed(0)},${y.toFixed(0)}" ` +
+           `stroke="${P.birds}" stroke-width="2" fill="none" stroke-linecap="round">` +
+           `<animateTransform attributeName="transform" type="translate" ` +
+           `values="0,0; ${(30 + rand() * 40).toFixed(0)},${(-8 - rand() * 10).toFixed(0)}; ${(60 + rand() * 80).toFixed(0)},0" ` +
+           `dur="${(9 + rand() * 8).toFixed(0)}s" repeatCount="indefinite"/></path>`;
+    }
+  }
+
+  // ---- soft vignette ----
+  s += `<rect width="${VW}" height="${VH}" fill="url(#sky)" opacity="0"/>`;
+
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${VW} ${VH}" width="${VW}" height="${VH}">` +
+         `<!-- Generated by Claude Fable 5 · seed ${seed} · ${time} -->` + s + `</svg>`;
+}
+
+// ---------------- UI wiring ----------------
+const frame = document.getElementById('frame');
+const seedEl = document.getElementById('seed');
+let currentSvg = '', currentSeed = 0, timeKey = 'auto';
+
+function newScene(seed = Math.floor(Math.random() * 1e9)) {
+  currentSeed = seed;
+  currentSvg = generate(seed, timeKey);
+  frame.innerHTML = currentSvg;
+  seedEl.textContent = String(seed);
+}
+
+document.getElementById('regen').addEventListener('click', () => newScene());
+frame.addEventListener('click', () => newScene());
+
+document.querySelectorAll('[data-time]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    timeKey = btn.dataset.time;
+    document.querySelectorAll('[data-time]').forEach(b => b.classList.toggle('active', b === btn));
+    newScene(currentSeed);          // same seed, new time of day
+  });
+});
+
+document.getElementById('download').addEventListener('click', () => {
+  const blob = new Blob([currentSvg], { type: 'image/svg+xml' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `landscape-${currentSeed}.svg`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+});
+
+newScene();
+</script>
+</body>
+</html>

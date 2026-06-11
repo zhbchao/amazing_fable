@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fable 5 Showcase — What Claude Can Build</title>
+<meta name="description" content="Interactive demos built entirely by Claude Fable 5: games, 3D graphics, SVG generation, generative art, physics simulation, and data visualization. Zero dependencies.">
+<style>
+  :root {
+    --bg: #070a12;
+    --surface: #0e1422;
+    --surface-2: #141c2e;
+    --text: #e8edf7;
+    --muted: #8b96ad;
+    --accent: #7c6cff;
+    --accent-2: #2dd4bf;
+    --accent-3: #f472b6;
+    --border: rgba(140, 160, 200, 0.14);
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+    line-height: 1.6;
+    overflow-x: hidden;
+  }
+  #bg-canvas {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+  }
+  main { position: relative; z-index: 1; }
+
+  /* ---------- Hero ---------- */
+  .hero {
+    min-height: 88vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    padding: 4rem 1.5rem 3rem;
+  }
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    border: 1px solid var(--border);
+    background: rgba(124, 108, 255, 0.08);
+    border-radius: 999px;
+    padding: 0.4rem 1rem;
+    font-size: 0.85rem;
+    color: var(--muted);
+    margin-bottom: 1.6rem;
+    animation: fadeUp 0.8s ease both;
+  }
+  .badge .dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--accent-2);
+    box-shadow: 0 0 10px var(--accent-2);
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.35; } }
+  .hero h1 {
+    font-size: clamp(2.6rem, 7.5vw, 5.2rem);
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    line-height: 1.08;
+    animation: fadeUp 0.8s 0.1s ease both;
+  }
+  .hero h1 .gradient {
+    background: linear-gradient(100deg, var(--accent) 0%, var(--accent-2) 50%, var(--accent-3) 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    background-size: 200% 100%;
+    animation: shimmer 6s linear infinite;
+  }
+  @keyframes shimmer {
+    0% { background-position: 0% 0; }
+    100% { background-position: 200% 0; }
+  }
+  .hero p.sub {
+    max-width: 640px;
+    margin: 1.4rem auto 0;
+    color: var(--muted);
+    font-size: clamp(1rem, 2.2vw, 1.2rem);
+    animation: fadeUp 0.8s 0.2s ease both;
+  }
+  .hero .cta-row {
+    margin-top: 2.4rem;
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+    justify-content: center;
+    animation: fadeUp 0.8s 0.3s ease both;
+  }
+  .btn {
+    display: inline-block;
+    padding: 0.8rem 1.7rem;
+    border-radius: 12px;
+    font-weight: 600;
+    font-size: 0.98rem;
+    text-decoration: none;
+    transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+  }
+  .btn-primary {
+    background: linear-gradient(100deg, var(--accent), #5e8bff);
+    color: #fff;
+    box-shadow: 0 8px 30px rgba(124, 108, 255, 0.35);
+  }
+  .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 12px 40px rgba(124, 108, 255, 0.5); }
+  .btn-ghost {
+    border: 1px solid var(--border);
+    color: var(--text);
+    background: rgba(255,255,255,0.03);
+  }
+  .btn-ghost:hover { background: rgba(255,255,255,0.07); transform: translateY(-2px); }
+  .scroll-hint {
+    margin-top: 4rem;
+    color: var(--muted);
+    font-size: 0.8rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    animation: fadeUp 0.8s 0.5s ease both;
+  }
+  .scroll-hint::after {
+    content: "↓";
+    display: block;
+    font-size: 1.2rem;
+    margin-top: 0.4rem;
+    animation: bob 1.8s ease-in-out infinite;
+  }
+  @keyframes bob { 0%,100% { transform: translateY(0); } 50% { transform: translateY(7px); } }
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(22px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ---------- Demo grid ---------- */
+  .section {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 4rem 1.5rem 5rem;
+  }
+  .section-head { text-align: center; margin-bottom: 3rem; }
+  .section-head h2 {
+    font-size: clamp(1.8rem, 4vw, 2.6rem);
+    font-weight: 760;
+    letter-spacing: -0.02em;
+  }
+  .section-head p { color: var(--muted); margin-top: 0.6rem; }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(330px, 1fr));
+    gap: 1.5rem;
+  }
+  .card {
+    position: relative;
+    display: block;
+    text-decoration: none;
+    color: inherit;
+    background: linear-gradient(165deg, var(--surface-2), var(--surface));
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    overflow: hidden;
+    transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+    opacity: 0;
+    transform: translateY(26px);
+  }
+  .card.visible { animation: fadeUp 0.7s ease both; }
+  .card:hover {
+    transform: translateY(-6px);
+    border-color: rgba(124, 108, 255, 0.5);
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(124, 108, 255, 0.25);
+  }
+  .card .preview {
+    height: 190px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    border-bottom: 1px solid var(--border);
+  }
+  .card .preview svg { width: 100%; height: 100%; }
+  .card .body { padding: 1.4rem 1.5rem 1.6rem; }
+  .card .tag {
+    display: inline-block;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    padding: 0.22rem 0.7rem;
+    border-radius: 999px;
+    margin-bottom: 0.7rem;
+  }
+  .card h3 { font-size: 1.25rem; font-weight: 700; margin-bottom: 0.45rem; }
+  .card p { color: var(--muted); font-size: 0.93rem; }
+  .card .go {
+    margin-top: 0.9rem;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--accent-2);
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    transition: gap 0.2s ease;
+  }
+  .card:hover .go { gap: 0.7rem; }
+
+  /* ---------- Footer ---------- */
+  footer {
+    position: relative;
+    z-index: 1;
+    border-top: 1px solid var(--border);
+    text-align: center;
+    padding: 2.6rem 1.5rem;
+    color: var(--muted);
+    font-size: 0.9rem;
+  }
+  footer a { color: var(--accent-2); text-decoration: none; }
+  footer a:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+<canvas id="bg-canvas"></canvas>
+<main>
+  <section class="hero">
+    <span class="badge"><span class="dot"></span>Every line on this site was written by Claude Fable 5</span>
+    <h1>What can <span class="gradient">Fable&nbsp;5</span> build?</h1>
+    <p class="sub">Six interactive demos — games, real-time 3D, SVG generation, generative art,
+      physics, and data visualization — built in pure HTML, CSS, and JavaScript.
+      No frameworks. No libraries. No build step.</p>
+    <div class="cta-row">
+      <a class="btn btn-primary" href="#demos">Explore the demos</a>
+      <a class="btn btn-ghost" href="https://github.com/zhbchao/amazing-fable" target="_blank" rel="noopener">View source</a>
+    </div>
+    <div class="scroll-hint">Scroll</div>
+  </section>
+
+  <section class="section" id="demos">
+    <div class="section-head">
+      <h2>Six capabilities, six demos</h2>
+      <p>Each one is a single self-contained file. Click any card to try it live.</p>
+    </div>
+    <div class="grid">
+
+      <a class="card" href="games/">
+        <div class="preview" style="background:#0a0618;">
+          <svg viewBox="0 0 300 190" preserveAspectRatio="xMidYMid slice">
+            <defs>
+              <linearGradient id="pg1" x1="0" y1="0" x2="1" y2="0">
+                <stop offset="0" stop-color="#f472b6"/><stop offset="1" stop-color="#7c6cff"/>
+              </linearGradient>
+            </defs>
+            <g>
+              <rect x="30" y="28" width="50" height="14" rx="4" fill="#f472b6" opacity="0.9"/>
+              <rect x="90" y="28" width="50" height="14" rx="4" fill="#fb923c" opacity="0.9"/>
+              <rect x="150" y="28" width="50" height="14" rx="4" fill="#facc15" opacity="0.9"/>
+              <rect x="210" y="28" width="50" height="14" rx="4" fill="#4ade80" opacity="0.9"/>
+              <rect x="30" y="50" width="50" height="14" rx="4" fill="#2dd4bf" opacity="0.75"/>
+              <rect x="90" y="50" width="50" height="14" rx="4" fill="#60a5fa" opacity="0.75"/>
+              <rect x="150" y="50" width="50" height="14" rx="4" fill="#a78bfa" opacity="0.75"/>
+              <rect x="210" y="50" width="50" height="14" rx="4" fill="#f472b6" opacity="0.75"/>
+            </g>
+            <circle cx="150" cy="118" r="7" fill="#fff">
+              <animate attributeName="cy" values="118;95;118" dur="1.6s" repeatCount="indefinite"/>
+            </circle>
+            <circle cx="150" cy="130" r="5" fill="#fff" opacity="0.3">
+              <animate attributeName="cy" values="130;107;130" dur="1.6s" repeatCount="indefinite"/>
+            </circle>
+            <rect x="115" y="158" width="70" height="10" rx="5" fill="url(#pg1)">
+              <animate attributeName="x" values="115;130;115;100;115" dur="3.2s" repeatCount="indefinite"/>
+            </rect>
+          </svg>
+        </div>
+        <div class="body">
+          <span class="tag" style="background:rgba(244,114,182,0.14);color:#f472b6;">Game Dev</span>
+          <h3>Neon Breakout</h3>
+          <p>A complete arcade game with particle explosions, screen shake, combo scoring, and a synthesizer soundtrack — all from a single prompt.</p>
+          <span class="go">Play it <span>→</span></span>
+        </div>
+      </a>
+
+      <a class="card" href="3d/">
+        <div class="preview" style="background:#060b14;">
+          <svg viewBox="0 0 300 190" preserveAspectRatio="xMidYMid slice">
+            <defs>
+              <linearGradient id="pg2" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0" stop-color="#2dd4bf"/><stop offset="1" stop-color="#7c6cff"/>
+              </linearGradient>
+            </defs>
+            <g fill="none" stroke="url(#pg2)" stroke-width="1.3" opacity="0.85" transform="translate(150,95)">
+              <ellipse rx="74" ry="26" transform="rotate(0)">
+                <animateTransform attributeName="transform" type="rotate" from="0" to="360" dur="9s" repeatCount="indefinite"/>
+              </ellipse>
+              <ellipse rx="74" ry="26" transform="rotate(60)">
+                <animateTransform attributeName="transform" type="rotate" from="60" to="420" dur="9s" repeatCount="indefinite"/>
+              </ellipse>
+              <ellipse rx="74" ry="26" transform="rotate(120)">
+                <animateTransform attributeName="transform" type="rotate" from="120" to="480" dur="9s" repeatCount="indefinite"/>
+              </ellipse>
+            </g>
+            <circle cx="150" cy="95" r="24" fill="url(#pg2)" opacity="0.9"/>
+            <circle cx="142" cy="87" r="8" fill="#fff" opacity="0.35"/>
+          </svg>
+        </div>
+        <div class="body">
+          <span class="tag" style="background:rgba(45,212,191,0.14);color:#2dd4bf;">3D Graphics</span>
+          <h3>Software 3D Renderer</h3>
+          <p>A from-scratch 3D engine on a 2D canvas: parametric meshes, directional lighting, depth sorting, and smooth morphing between shapes.</p>
+          <span class="go">Spin it <span>→</span></span>
+        </div>
+      </a>
+
+      <a class="card" href="svg/">
+        <div class="preview" style="background:#0b0f1c;">
+          <svg viewBox="0 0 300 190" preserveAspectRatio="xMidYMid slice">
+            <defs>
+              <linearGradient id="pg3" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0" stop-color="#1e1b4b"/><stop offset="1" stop-color="#7c3aed"/>
+              </linearGradient>
+            </defs>
+            <rect width="300" height="190" fill="url(#pg3)"/>
+            <circle cx="220" cy="58" r="22" fill="#fcd34d" opacity="0.95"/>
+            <circle cx="220" cy="58" r="32" fill="#fcd34d" opacity="0.18">
+              <animate attributeName="r" values="32;38;32" dur="3s" repeatCount="indefinite"/>
+            </circle>
+            <path d="M0,128 L40,96 L85,122 L130,84 L180,118 L230,92 L300,124 L300,190 L0,190 Z" fill="#3b3470" opacity="0.85"/>
+            <path d="M0,150 L55,120 L110,146 L170,112 L235,144 L300,120 L300,190 L0,190 Z" fill="#221d4d"/>
+            <path d="M58,52 q6,-7 12,0 q6,-7 12,0" stroke="#e8edf7" stroke-width="2" fill="none" opacity="0.8">
+              <animateTransform attributeName="transform" type="translate" values="0,0; 9,-4; 0,0" dur="4s" repeatCount="indefinite"/>
+            </path>
+          </svg>
+        </div>
+        <div class="body">
+          <span class="tag" style="background:rgba(167,139,250,0.14);color:#a78bfa;">SVG Generation</span>
+          <h3>Infinite Landscapes</h3>
+          <p>A procedural SVG generator: every click composes a new animated landscape — sky, light, ridgelines, wildlife — and lets you download the file.</p>
+          <span class="go">Generate one <span>→</span></span>
+        </div>
+      </a>
+
+      <a class="card" href="generative/">
+        <div class="preview" style="background:#05080f;">
+          <svg viewBox="0 0 300 190" preserveAspectRatio="xMidYMid slice">
+            <g fill="none" stroke-width="1.6" stroke-linecap="round" opacity="0.9">
+              <path d="M20,150 C70,140 80,80 140,72 S250,90 285,40" stroke="#2dd4bf"/>
+              <path d="M10,120 C60,118 100,60 150,58 S240,110 290,70" stroke="#7c6cff"/>
+              <path d="M25,170 C85,160 95,100 150,95 S255,70 290,110" stroke="#f472b6"/>
+              <path d="M5,95 C55,100 110,40 165,45 S250,130 295,95" stroke="#fb923c" opacity="0.8"/>
+              <path d="M15,60 C75,70 120,25 175,30 S260,55 292,28" stroke="#60a5fa" opacity="0.7"/>
+            </g>
+            <circle r="3.5" fill="#fff">
+              <animateMotion dur="4s" repeatCount="indefinite" path="M20,150 C70,140 80,80 140,72 S250,90 285,40"/>
+            </circle>
+            <circle r="3" fill="#fff" opacity="0.85">
+              <animateMotion dur="5s" repeatCount="indefinite" path="M25,170 C85,160 95,100 150,95 S255,70 290,110"/>
+            </circle>
+          </svg>
+        </div>
+        <div class="body">
+          <span class="tag" style="background:rgba(251,146,60,0.14);color:#fb923c;">Generative Art</span>
+          <h3>Flow Fields</h3>
+          <p>Thousands of particles drift through a hand-rolled noise field, painting a unique artwork in real time. Curated palettes, PNG export.</p>
+          <span class="go">Watch it paint <span>→</span></span>
+        </div>
+      </a>
+
+      <a class="card" href="physics/">
+        <div class="preview" style="background:#070b15;">
+          <svg viewBox="0 0 300 190" preserveAspectRatio="xMidYMid slice">
+            <g stroke="#5e8bff" stroke-width="1" fill="none" opacity="0.85">
+              <path d="M60,30 Q62,80 58,150">
+                <animate attributeName="d" values="M60,30 Q62,80 58,150; M60,30 Q72,80 66,148; M60,30 Q62,80 58,150" dur="3s" repeatCount="indefinite"/>
+              </path>
+              <path d="M105,30 Q108,85 104,152">
+                <animate attributeName="d" values="M105,30 Q108,85 104,152; M105,30 Q120,82 113,150; M105,30 Q108,85 104,152" dur="3s" begin="0.2s" repeatCount="indefinite"/>
+              </path>
+              <path d="M150,30 Q153,85 150,153">
+                <animate attributeName="d" values="M150,30 Q153,85 150,153; M150,30 Q168,82 160,151; M150,30 Q153,85 150,153" dur="3s" begin="0.4s" repeatCount="indefinite"/>
+              </path>
+              <path d="M195,30 Q197,85 196,152">
+                <animate attributeName="d" values="M195,30 Q197,85 196,152; M195,30 Q212,82 205,150; M195,30 Q197,85 196,152" dur="3s" begin="0.6s" repeatCount="indefinite"/>
+              </path>
+              <path d="M240,30 Q241,80 242,150">
+                <animate attributeName="d" values="M240,30 Q241,80 242,150; M240,30 Q252,80 250,148; M240,30 Q241,80 242,150" dur="3s" begin="0.8s" repeatCount="indefinite"/>
+              </path>
+              <line x1="40" y1="30" x2="260" y2="30" stroke="#2dd4bf" stroke-width="2"/>
+            </g>
+            <circle cx="60" cy="30" r="3.5" fill="#2dd4bf"/>
+            <circle cx="150" cy="30" r="3.5" fill="#2dd4bf"/>
+            <circle cx="240" cy="30" r="3.5" fill="#2dd4bf"/>
+          </svg>
+        </div>
+        <div class="body">
+          <span class="tag" style="background:rgba(94,139,255,0.14);color:#5e8bff;">Physics</span>
+          <h3>Tearable Cloth</h3>
+          <p>A Verlet-integration cloth simulation you can grab, fling, and rip apart — with wind, gravity, and stress-colored fibers.</p>
+          <span class="go">Tear it up <span>→</span></span>
+        </div>
+      </a>
+
+      <a class="card" href="dataviz/">
+        <div class="preview" style="background:#080a13;">
+          <svg viewBox="0 0 300 190" preserveAspectRatio="xMidYMid slice">
+            <g stroke="rgba(140,160,200,0.35)" stroke-width="1">
+              <line x1="150" y1="95" x2="70" y2="50"/><line x1="150" y1="95" x2="230" y2="48"/>
+              <line x1="150" y1="95" x2="60" y2="140"/><line x1="150" y1="95" x2="238" y2="138"/>
+              <line x1="70" y1="50" x2="34" y2="86"/><line x1="230" y1="48" x2="262" y2="84"/>
+              <line x1="60" y1="140" x2="96" y2="168"/><line x1="238" y1="138" x2="204" y2="170"/>
+            </g>
+            <circle cx="150" cy="95" r="16" fill="#7c6cff">
+              <animate attributeName="r" values="16;18;16" dur="2.4s" repeatCount="indefinite"/>
+            </circle>
+            <circle cx="70" cy="50" r="9" fill="#2dd4bf"/>
+            <circle cx="230" cy="48" r="9" fill="#f472b6"/>
+            <circle cx="60" cy="140" r="9" fill="#fb923c"/>
+            <circle cx="238" cy="138" r="9" fill="#60a5fa"/>
+            <circle cx="34" cy="86" r="5" fill="#2dd4bf" opacity="0.7"/>
+            <circle cx="262" cy="84" r="5" fill="#f472b6" opacity="0.7"/>
+            <circle cx="96" cy="168" r="5" fill="#fb923c" opacity="0.7"/>
+            <circle cx="204" cy="170" r="5" fill="#60a5fa" opacity="0.7"/>
+          </svg>
+        </div>
+        <div class="body">
+          <span class="tag" style="background:rgba(96,165,250,0.14);color:#60a5fa;">Data Viz</span>
+          <h3>Capability Graph</h3>
+          <p>A live force-directed graph of what Fable 5 can do — springs, repulsion, and drag physics computed every frame on a canvas.</p>
+          <span class="go">Explore the graph <span>→</span></span>
+        </div>
+      </a>
+
+    </div>
+  </section>
+</main>
+
+<footer>
+  Designed, coded, and shipped by <strong>Claude Fable 5</strong> ·
+  <a href="https://github.com/zhbchao/amazing-fable" target="_blank" rel="noopener">Source on GitHub</a>
+</footer>
+
+<script>
+// ---------- Starfield / constellation background ----------
+(() => {
+  const canvas = document.getElementById('bg-canvas');
+  const ctx = canvas.getContext('2d');
+  let W, H, stars;
+  const STAR_COUNT = 110;
+
+  function resize() {
+    W = canvas.width = innerWidth;
+    H = canvas.height = innerHeight;
+  }
+  function init() {
+    stars = Array.from({ length: STAR_COUNT }, () => ({
+      x: Math.random() * W,
+      y: Math.random() * H,
+      vx: (Math.random() - 0.5) * 0.18,
+      vy: (Math.random() - 0.5) * 0.18,
+      r: Math.random() * 1.6 + 0.4,
+      tw: Math.random() * Math.PI * 2
+    }));
+  }
+  resize(); init();
+  addEventListener('resize', () => { resize(); init(); });
+
+  let t = 0;
+  (function frame() {
+    t += 0.016;
+    ctx.clearRect(0, 0, W, H);
+    for (const s of stars) {
+      s.x += s.vx; s.y += s.vy;
+      if (s.x < 0) s.x += W; if (s.x > W) s.x -= W;
+      if (s.y < 0) s.y += H; if (s.y > H) s.y -= H;
+      const a = 0.35 + 0.3 * Math.sin(t * 1.4 + s.tw);
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(180,195,235,${a})`;
+      ctx.fill();
+    }
+    // connect close stars
+    ctx.lineWidth = 0.5;
+    for (let i = 0; i < stars.length; i++) {
+      for (let j = i + 1; j < stars.length; j++) {
+        const dx = stars[i].x - stars[j].x, dy = stars[i].y - stars[j].y;
+        const d2 = dx * dx + dy * dy;
+        if (d2 < 110 * 110) {
+          ctx.strokeStyle = `rgba(124,108,255,${0.10 * (1 - d2 / (110 * 110))})`;
+          ctx.beginPath();
+          ctx.moveTo(stars[i].x, stars[i].y);
+          ctx.lineTo(stars[j].x, stars[j].y);
+          ctx.stroke();
+        }
+      }
+    }
+    requestAnimationFrame(frame);
+  })();
+})();
+
+// ---------- Scroll reveal for cards ----------
+(() => {
+  const cards = document.querySelectorAll('.card');
+  const io = new IntersectionObserver(entries => {
+    for (const e of entries) {
+      if (e.isIntersecting) {
+        e.target.classList.add('visible');
+        e.target.style.animationDelay = `${[...cards].indexOf(e.target) % 3 * 0.1}s`;
+        io.unobserve(e.target);
+      }
+    }
+  }, { threshold: 0.12 });
+  cards.forEach(c => io.observe(c));
+})();
+</script>
+</body>
+</html>

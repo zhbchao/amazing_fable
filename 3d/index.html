@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Software 3D Renderer — Fable 5 Showcase</title>
+<style>
+  :root { --bg: #060b14; --text: #e8edf7; --muted: #8b96ad; --border: rgba(140,160,200,0.18); }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.9rem 1.4rem;
+    z-index: 2;
+  }
+  header a { color: var(--muted); text-decoration: none; font-size: 0.9rem; }
+  header a:hover { color: var(--text); }
+  header .title { font-weight: 700; }
+  header .title em {
+    font-style: normal;
+    background: linear-gradient(90deg, #2dd4bf, #7c6cff);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  #stage { flex: 1; position: relative; }
+  canvas { position: absolute; inset: 0; width: 100%; height: 100%; cursor: grab; touch-action: none; }
+  canvas.dragging { cursor: grabbing; }
+  .panel {
+    position: absolute;
+    bottom: 1.2rem;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    justify-content: center;
+    background: rgba(10, 16, 28, 0.82);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 0.6rem 0.8rem;
+    backdrop-filter: blur(8px);
+  }
+  .panel button {
+    background: rgba(255,255,255,0.05);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 9px;
+    padding: 0.45rem 0.95rem;
+    font-size: 0.86rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+    font-family: inherit;
+  }
+  .panel button:hover { background: rgba(255,255,255,0.1); }
+  .panel button.active { background: rgba(124,108,255,0.3); border-color: #7c6cff; }
+  .stats {
+    position: absolute;
+    top: 0.8rem;
+    right: 1.2rem;
+    color: var(--muted);
+    font-size: 0.76rem;
+    text-align: right;
+    line-height: 1.7;
+    font-variant-numeric: tabular-nums;
+  }
+  .hint {
+    position: absolute;
+    top: 0.8rem;
+    left: 1.2rem;
+    color: var(--muted);
+    font-size: 0.8rem;
+  }
+</style>
+</head>
+<body>
+<header>
+  <a href="../">← Fable 5 Showcase</a>
+  <span class="title">SOFTWARE <em>3D RENDERER</em></span>
+  <span style="width:110px"></span>
+</header>
+<div id="stage">
+  <canvas id="c"></canvas>
+  <div class="hint">drag to rotate · scroll to zoom</div>
+  <div class="stats" id="stats"></div>
+  <div class="panel" id="panel">
+    <button data-shape="0" class="active">Torus</button>
+    <button data-shape="1">Sphere</button>
+    <button data-shape="2">Trefoil Knot</button>
+    <button data-shape="3">Flower</button>
+    <button id="wire">Wireframe</button>
+    <button id="spin" class="active">Auto-spin</button>
+  </div>
+</div>
+
+<script>
+'use strict';
+// =============================================================
+//  A complete 3D pipeline on a 2D canvas — no WebGL, no libs.
+//  Parametric tube meshes → rotate → light → cull → sort → fill
+// =============================================================
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+let W = 0, H = 0, DPR = 1;
+function resize() {
+  DPR = Math.min(devicePixelRatio || 1, 2);
+  W = canvas.clientWidth; H = canvas.clientHeight;
+  canvas.width = W * DPR; canvas.height = H * DPR;
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+}
+addEventListener('resize', resize);
+
+// ---------------- vector helpers ----------------
+const vsub = (a, b) => [a[0]-b[0], a[1]-b[1], a[2]-b[2]];
+const vcross = (a, b) => [a[1]*b[2]-a[2]*b[1], a[2]*b[0]-a[0]*b[2], a[0]*b[1]-a[1]*b[0]];
+const vnorm = a => { const l = Math.hypot(a[0],a[1],a[2]) || 1; return [a[0]/l, a[1]/l, a[2]/l]; };
+
+// ---------------- mesh generation ----------------
+// Every shape is a tube swept along a closed 3D curve, sampled on the
+// same NU x NV grid so vertices correspond 1:1 — which makes morphing
+// between any two shapes a simple per-vertex lerp.
+const NU = 96, NV = 30;
+
+function tubeMesh(curve, tubeR) {
+  const pos = new Float32Array(NU * NV * 3);
+  for (let i = 0; i < NU; i++) {
+    const t = i / NU * Math.PI * 2;
+    const c = curve(t);
+    const c2 = curve(t + 0.001);
+    const T = vnorm(vsub(c2, c));
+    const up = Math.abs(T[2]) < 0.95 ? [0, 0, 1] : [1, 0, 0];
+    const B = vnorm(vcross(T, up));
+    const N = vnorm(vcross(B, T));
+    const r = typeof tubeR === 'function' ? tubeR(t) : tubeR;
+    for (let j = 0; j < NV; j++) {
+      const a = j / NV * Math.PI * 2;
+      const k = (i * NV + j) * 3;
+      pos[k]     = c[0] + (N[0] * Math.cos(a) + B[0] * Math.sin(a)) * r;
+      pos[k + 1] = c[1] + (N[1] * Math.cos(a) + B[1] * Math.sin(a)) * r;
+      pos[k + 2] = c[2] + (N[2] * Math.cos(a) + B[2] * Math.sin(a)) * r;
+    }
+  }
+  return pos;
+}
+
+const SHAPES = [
+  { name: 'Torus',   color: [45, 212, 191],
+    mesh: () => tubeMesh(t => [Math.cos(t) * 1.25, Math.sin(t) * 1.25, 0], 0.52) },
+  { name: 'Sphere',  color: [124, 108, 255],
+    // a horn torus (tube radius = ring radius) closes into a sphere-like form
+    mesh: () => tubeMesh(t => [Math.cos(t) * 0.86, Math.sin(t) * 0.86, 0], 0.86) },
+  { name: 'Trefoil', color: [244, 114, 182],
+    mesh: () => tubeMesh(t => [
+      (Math.cos(3 * t) * 0.45 + 1.05) * Math.cos(2 * t),
+      (Math.cos(3 * t) * 0.45 + 1.05) * Math.sin(2 * t),
+      Math.sin(3 * t) * 0.55
+    ], 0.30) },
+  { name: 'Flower',  color: [251, 146, 60],
+    mesh: () => tubeMesh(
+      t => [Math.cos(t) * (1.15 + 0.32 * Math.sin(5 * t)),
+            Math.sin(t) * (1.15 + 0.32 * Math.sin(5 * t)),
+            Math.cos(5 * t) * 0.22],
+      t => 0.30 + 0.08 * Math.sin(5 * t)) }
+];
+SHAPES.forEach(s => s.pos = s.mesh());
+
+// face index list — shared by all shapes (grid wraps in both directions)
+const FACES = [];
+for (let i = 0; i < NU; i++) {
+  for (let j = 0; j < NV; j++) {
+    const i2 = (i + 1) % NU, j2 = (j + 1) % NV;
+    FACES.push([i * NV + j, i2 * NV + j, i2 * NV + j2, i * NV + j2]);
+  }
+}
+
+// ---------------- scene state ----------------
+let cur = 0, prev = 0, morph = 1;          // morph 0→1 between prev and cur
+let rx = 0.45, ry = 0.6;                   // rotation angles
+let vrx = 0, vry = 0;                      // drag inertia
+let zoom = 1, autoSpin = true, wireframe = false;
+const LIGHT = vnorm([-0.5, -0.7, 0.9]);
+const CAM_DIST = 4.2, FOCAL = 3.1;
+
+const morphed = new Float32Array(NU * NV * 3);
+const xf = new Float32Array(NU * NV * 3);  // transformed vertices
+const px = new Float32Array(NU * NV);      // projected screen coords
+const py = new Float32Array(NU * NV);
+
+const drawList = [];
+
+function frame(now) {
+  if (!W) resize();
+  const a = SHAPES[prev].pos, b = SHAPES[cur].pos;
+  const m = morph < 1 ? easeInOut(morph) : 1;
+
+  // morph + rotate + project all vertices
+  if (autoSpin && !dragging) { ry += 0.006; rx += 0.0017; }
+  rx += vrx; ry += vry; vrx *= 0.94; vry *= 0.94;
+  const cx = Math.cos(rx), sx = Math.sin(rx);
+  const cy = Math.cos(ry), sy = Math.sin(ry);
+  const scale = Math.min(W, H) * 0.36 * zoom;
+
+  for (let v = 0; v < NU * NV; v++) {
+    const k = v * 3;
+    const x0 = a[k] + (b[k] - a[k]) * m;
+    const y0 = a[k+1] + (b[k+1] - a[k+1]) * m;
+    const z0 = a[k+2] + (b[k+2] - a[k+2]) * m;
+    // rotate around Y then X
+    const x1 = x0 * cy + z0 * sy;
+    const z1 = -x0 * sy + z0 * cy;
+    const y2 = y0 * cx - z1 * sx;
+    const z2 = y0 * sx + z1 * cx;
+    xf[k] = x1; xf[k+1] = y2; xf[k+2] = z2;
+    const persp = FOCAL / (CAM_DIST + z2);
+    px[v] = W / 2 + x1 * persp * scale;
+    py[v] = H / 2 - y2 * persp * scale;
+  }
+
+  // shade + cull + collect faces
+  const cr = lerpC(SHAPES[prev].color[0], SHAPES[cur].color[0], m);
+  const cg = lerpC(SHAPES[prev].color[1], SHAPES[cur].color[1], m);
+  const cb = lerpC(SHAPES[prev].color[2], SHAPES[cur].color[2], m);
+  drawList.length = 0;
+  for (let f = 0; f < FACES.length; f++) {
+    const [i0, i1, i2, i3] = FACES[f];
+    const k0 = i0*3, k1 = i1*3, k2 = i2*3;
+    // face normal from two edges (unnormalized is fine for culling sign)
+    const e1x = xf[k1]-xf[k0], e1y = xf[k1+1]-xf[k0+1], e1z = xf[k1+2]-xf[k0+2];
+    const e2x = xf[k2]-xf[k0], e2y = xf[k2+1]-xf[k0+1], e2z = xf[k2+2]-xf[k0+2];
+    let nx = e1y*e2z - e1z*e2y, ny = e1z*e2x - e1x*e2z, nz = e1x*e2y - e1y*e2x;
+    if (nz <= 0 && !wireframe) continue;            // backface cull
+    const nl = Math.hypot(nx, ny, nz) || 1;
+    nx /= nl; ny /= nl; nz /= nl;
+    const lambert = Math.max(0, nx*LIGHT[0] + ny*LIGHT[1] + nz*LIGHT[2]);
+    const spec = Math.pow(Math.max(0, nz), 8) * 0.35;       // cheap view-dir specular
+    const depth = (xf[k0+2] + xf[k1+2] + xf[k2+2] + xf[FACES[f][3]*3+2]) / 4;
+    const fog = 1 - Math.max(0, Math.min(0.45, (depth + 1.6) * 0.13));
+    const li = (0.22 + 0.78 * lambert) * fog;
+    drawList.push({ f, depth,
+      r: Math.min(255, cr * li + 255 * spec),
+      g: Math.min(255, cg * li + 255 * spec),
+      b: Math.min(255, cb * li + 255 * spec) });
+  }
+  drawList.sort((p, q) => p.depth - q.depth);       // painter's algorithm: far first
+
+  // render
+  const bg = ctx.createRadialGradient(W/2, H/2, 0, W/2, H/2, Math.max(W, H) * 0.7);
+  bg.addColorStop(0, '#0a1322'); bg.addColorStop(1, '#04070e');
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, W, H);
+
+  for (const d of drawList) {
+    const [i0, i1, i2, i3] = FACES[d.f];
+    ctx.beginPath();
+    ctx.moveTo(px[i0], py[i0]);
+    ctx.lineTo(px[i1], py[i1]);
+    ctx.lineTo(px[i2], py[i2]);
+    ctx.lineTo(px[i3], py[i3]);
+    ctx.closePath();
+    const col = `rgb(${d.r|0},${d.g|0},${d.b|0})`;
+    if (wireframe) {
+      ctx.strokeStyle = col;
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    } else {
+      ctx.fillStyle = col;
+      ctx.fill();
+      ctx.strokeStyle = col;   // hairline stroke hides anti-alias gaps between faces
+      ctx.lineWidth = 0.6;
+      ctx.stroke();
+    }
+  }
+
+  if (morph < 1) morph = Math.min(1, morph + 0.025);
+  fps(now);
+  requestAnimationFrame(frame);
+}
+const easeInOut = t => t < 0.5 ? 2*t*t : 1 - Math.pow(-2*t + 2, 2) / 2;
+const lerpC = (a, b, t) => a + (b - a) * t;
+
+// ---------------- stats ----------------
+let frames = 0, lastFps = 0, fpsVal = 0;
+const statsEl = document.getElementById('stats');
+function fps(now) {
+  frames++;
+  if (now - lastFps > 500) {
+    fpsVal = Math.round(frames * 1000 / (now - lastFps));
+    frames = 0; lastFps = now;
+    statsEl.innerHTML =
+      `${NU * NV} vertices · ${FACES.length} faces<br>` +
+      `${drawList.length} drawn after culling<br>${fpsVal} fps · pure Canvas 2D`;
+  }
+}
+
+// ---------------- interaction ----------------
+let dragging = false, lastX = 0, lastY = 0;
+function down(x, y) { dragging = true; lastX = x; lastY = y; canvas.classList.add('dragging'); }
+function move(x, y) {
+  if (!dragging) return;
+  vry = (x - lastX) * 0.006;
+  vrx = (y - lastY) * 0.006;
+  ry += vry; rx += vrx;
+  lastX = x; lastY = y;
+}
+function up() { dragging = false; canvas.classList.remove('dragging'); }
+canvas.addEventListener('mousedown', e => down(e.clientX, e.clientY));
+addEventListener('mousemove', e => move(e.clientX, e.clientY));
+addEventListener('mouseup', up);
+canvas.addEventListener('touchstart', e => { e.preventDefault(); down(e.touches[0].clientX, e.touches[0].clientY); }, { passive: false });
+canvas.addEventListener('touchmove', e => { e.preventDefault(); move(e.touches[0].clientX, e.touches[0].clientY); }, { passive: false });
+canvas.addEventListener('touchend', up);
+canvas.addEventListener('wheel', e => {
+  e.preventDefault();
+  zoom = Math.max(0.4, Math.min(2.6, zoom * (e.deltaY > 0 ? 0.92 : 1.08)));
+}, { passive: false });
+
+// ---------------- UI ----------------
+const shapeBtns = [...document.querySelectorAll('[data-shape]')];
+shapeBtns.forEach(btn => btn.addEventListener('click', () => {
+  const idx = +btn.dataset.shape;
+  if (idx === cur) return;
+  prev = cur; cur = idx; morph = 0;
+  shapeBtns.forEach(b => b.classList.toggle('active', b === btn));
+}));
+document.getElementById('wire').addEventListener('click', e => {
+  wireframe = !wireframe;
+  e.target.classList.toggle('active', wireframe);
+});
+document.getElementById('spin').addEventListener('click', e => {
+  autoSpin = !autoSpin;
+  e.target.classList.toggle('active', autoSpin);
+});
+
+resize();
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
