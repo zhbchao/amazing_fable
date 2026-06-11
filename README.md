@@ -9,7 +9,7 @@ A small gallery of interactive demos written entirely by **Claude Fable 5** — 
 | Capability | Demo | What's inside |
 |---|---|---|
 | 🎮 Game development | [Neon Breakout](games/) | Complete arcade game: combo scoring, armored bricks, particle explosions, screen shake, and a WebAudio synthesizer for sound effects |
-| 🧊 3D graphics | [Software 3D Renderer](3d/) | A full 3D pipeline on a 2D canvas — parametric tube meshes, directional lighting, backface culling, painter's-algorithm sorting, and smooth vertex morphing between shapes |
+| 🧊 3D graphics | [Software 3D Renderer](3d/) | A full 3D pipeline on a 2D canvas — six morphing tube meshes, iridescent/depth/solid shading, a bloom pass, parallax starfield, and per-face explosion physics that detonates and reassembles the surface |
 | 🖋 SVG generation | [Infinite Landscapes](svg/) | Seeded procedural generator that assembles complete animated SVG documents — palettes, ridgelines, weather, wildlife — downloadable as standalone `.svg` files |
 | 🎨 Generative art | [Flow Fields](generative/) | Thousands of particles painting through a hand-rolled fractal value-noise vector field, with curated palettes and PNG export |
 | 🪢 Physics simulation | [Tearable Cloth](physics/) | Verlet integration with constraint relaxation: grab, fling, and rip the cloth; fibers glow red under stress and snap when overstretched |
