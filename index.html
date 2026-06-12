@@ -424,14 +424,14 @@
         <span class="arrow">→</span>
       </a></li>
 
-      <li><a class="work" href="dataviz/" data-preview="pv-graph">
+      <li><a class="work" href="earth/" data-preview="pv-earth">
         <span class="num">09</span>
         <span>
-          <h2>Capability Graph</h2>
-          <p>A live force-directed graph — springs, repulsion, and drag physics computed every
-            frame on a canvas.</p>
+          <h2>Restless Earth</h2><span class="new">New</span>
+          <p>Every earthquake on the planet from the last 30 days, pulled live from the USGS
+            and rendered on a wireframe globe — press play and the whole month replays.</p>
         </span>
-        <span class="tag mono">Data viz</span>
+        <span class="tag mono">Data viz · Live feed</span>
         <span class="arrow">→</span>
       </a></li>
 
@@ -584,20 +584,28 @@
   </svg>
 </template>
 
-<template id="pv-graph">
+<template id="pv-earth">
   <svg viewBox="0 0 300 190" preserveAspectRatio="xMidYMid slice">
-    <rect width="300" height="190" fill="#080a13"/>
-    <g stroke="rgba(140,160,200,0.35)" stroke-width="1">
-      <line x1="150" y1="95" x2="70" y2="50"/><line x1="150" y1="95" x2="230" y2="48"/>
-      <line x1="150" y1="95" x2="60" y2="140"/><line x1="150" y1="95" x2="238" y2="138"/>
-      <line x1="70" y1="50" x2="34" y2="86"/><line x1="230" y1="48" x2="262" y2="84"/>
-      <line x1="60" y1="140" x2="96" y2="168"/><line x1="238" y1="138" x2="204" y2="170"/>
+    <rect width="300" height="190" fill="#07070c"/>
+    <g fill="none" stroke="rgba(236,233,226,0.3)" stroke-width="1">
+      <circle cx="150" cy="95" r="72"/>
+      <ellipse cx="150" cy="95" rx="72" ry="26"/>
+      <ellipse cx="150" cy="95" rx="72" ry="54"/>
+      <ellipse cx="150" cy="95" rx="26" ry="72"/>
+      <ellipse cx="150" cy="95" rx="54" ry="72"/>
     </g>
-    <circle cx="150" cy="95" r="16" fill="#7c6cff"/>
-    <circle cx="70" cy="50" r="9" fill="#2dd4bf"/><circle cx="230" cy="48" r="9" fill="#f472b6"/>
-    <circle cx="60" cy="140" r="9" fill="#fb923c"/><circle cx="238" cy="138" r="9" fill="#60a5fa"/>
-    <circle cx="34" cy="86" r="5" fill="#2dd4bf" opacity="0.7"/><circle cx="262" cy="84" r="5" fill="#f472b6" opacity="0.7"/>
-    <circle cx="96" cy="168" r="5" fill="#fb923c" opacity="0.7"/><circle cx="204" cy="170" r="5" fill="#60a5fa" opacity="0.7"/>
+    <circle cx="150" cy="95" r="72" fill="none" stroke="rgba(120,135,180,0.35)" stroke-width="5" opacity="0.4"/>
+    <g fill="#e3b264">
+      <circle cx="106" cy="60" r="3.4"/><circle cx="121" cy="49" r="2.2"/>
+      <circle cx="186" cy="54" r="2.6"/><circle cx="201" cy="74" r="4.2" opacity="0.95"/>
+      <circle cx="208" cy="102" r="2.4"/><circle cx="196" cy="128" r="3"/>
+      <circle cx="170" cy="148" r="2.2"/><circle cx="118" cy="143" r="2.8"/>
+      <circle cx="96" cy="120" r="2.2"/><circle cx="138" cy="78" r="1.8"/>
+    </g>
+    <circle cx="201" cy="74" r="9" fill="none" stroke="#e3b264" stroke-width="1" opacity="0.55"/>
+    <circle cx="106" cy="60" r="7" fill="none" stroke="#e3b264" stroke-width="1" opacity="0.4"/>
+    <circle cx="161" cy="112" r="3" fill="#8d7bff"/>
+    <circle cx="129" cy="100" r="2.2" fill="#ff6fae"/>
   </svg>
 </template>
 

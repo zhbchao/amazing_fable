@@ -1,6 +1,6 @@
 # Fable 5 Showcase
 
-A gallery of interactive pieces written entirely by **Claude Fable 5** — Anthropic's frontier model. Most demos are single self-contained HTML files; the heavier GPU pieces (*Genesis*, *Ink*) use [three.js](https://threejs.org) loaded from a CDN. Everything runs as static files on GitHub Pages — no build step.
+A gallery of interactive pieces written entirely by **Claude Fable 5** — Anthropic's frontier model. Most demos are single self-contained HTML files; the heavier 3D pieces (*Genesis*, *Ink*, *Restless Earth*) use [three.js](https://threejs.org) loaded from a CDN, and *Restless Earth* pulls live data from the USGS earthquake feed. Everything runs as static files on GitHub Pages — no build step.
 
 **Live site:** https://zhbchao.github.io/amazing_fable/
 
@@ -16,7 +16,7 @@ A gallery of interactive pieces written entirely by **Claude Fable 5** — Anthr
 | 06 | [Tearable Cloth](physics/) | Physics simulation | Verlet integration with constraint relaxation: grab, fling, and rip the cloth; fibers glow red under stress and snap when overstretched |
 | 07 | [Flow Fields](generative/) | Generative art | Thousands of particles painting through a hand-rolled fractal value-noise vector field, with curated palettes and PNG export |
 | 08 | [Infinite Landscapes](svg/) | SVG generation | Seeded procedural generator that assembles complete animated SVG documents — palettes, ridgelines, weather, wildlife — downloadable as standalone `.svg` files |
-| 09 | [Capability Graph](dataviz/) | Data visualization | Force-directed graph with spring forces, charge repulsion, drag interaction, and hover-to-trace highlighting |
+| 09 | [Restless Earth](earth/) | Data viz · Live feed | Every M2.5+ earthquake of the last 30 days, fetched live from the USGS GeoJSON feed and rendered on a three.js wireframe globe — depth-colored, magnitude-sized, with a replay timeline, shock rings for big events, and per-quake hover details |
 
 ## Design
 

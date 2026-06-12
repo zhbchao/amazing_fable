@@ -1,0 +1,709 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#07070c">
+<title>Restless Earth — a month of real earthquakes · Fable 5</title>
+<meta name="description" content="Every earthquake on the planet from the last 30 days, pulled live from the USGS and rendered on a wireframe globe — with a timeline that replays the month. Built by Claude Fable 5.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..700;1,9..144,300..700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #ece9e2;
+    --muted: #8a8fa3;
+    --amber: #e3b264;
+    --line: rgba(236, 233, 226, 0.14);
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    background: #07070c;
+    color: var(--ink);
+    font-family: Inter, -apple-system, sans-serif;
+    overflow: hidden;
+  }
+  canvas { display: block; }
+  #scene { position: fixed; inset: 0; }
+
+  .ui { position: fixed; z-index: 5; }
+  #masthead { top: 1.4rem; left: 1.6rem; pointer-events: none; }
+  #masthead .back {
+    pointer-events: auto;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--muted);
+    text-decoration: none;
+    transition: color 0.2s;
+  }
+  #masthead .back:hover { color: var(--ink); }
+  #masthead h1 {
+    margin-top: 0.7rem;
+    font-family: Fraunces, serif;
+    font-style: italic;
+    font-weight: 380;
+    font-size: clamp(1.5rem, 3vw, 2.1rem);
+    line-height: 1;
+  }
+  #masthead .sub {
+    margin-top: 0.55rem;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.66rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  #masthead .sub b { color: var(--amber); font-weight: 500; }
+
+  #stats {
+    top: 1.5rem; right: 1.6rem;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.64rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--muted);
+    text-align: right;
+    line-height: 2;
+    pointer-events: none;
+  }
+  #stats b { color: var(--ink); font-weight: 500; }
+
+  #legend {
+    bottom: 1.9rem; left: 1.6rem;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.62rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--muted);
+    line-height: 2;
+    pointer-events: none;
+  }
+  #legend i {
+    display: inline-block;
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    margin-right: 0.45rem;
+    vertical-align: 1px;
+  }
+
+  #hint {
+    bottom: 1.9rem; right: 1.6rem;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.62rem;
+    letter-spacing: 0.14em;
+    color: var(--muted);
+    text-align: right;
+    line-height: 2;
+    opacity: 0.85;
+    pointer-events: none;
+  }
+
+  /* ---- timeline + panel ---- */
+  #deck {
+    bottom: 1.6rem; left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.8rem;
+    width: min(74vw, 620px);
+  }
+  #timeline {
+    width: 100%;
+    height: 18px;
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    touch-action: none;
+  }
+  #timeline .rail {
+    position: relative;
+    width: 100%; height: 2px;
+    background: var(--line);
+    border-radius: 1px;
+  }
+  #timeline .fill {
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 100%;
+    background: var(--amber);
+    border-radius: 1px;
+  }
+  #timeline .knob {
+    position: absolute;
+    top: 50%; left: 100%;
+    width: 9px; height: 9px;
+    border-radius: 50%;
+    background: var(--amber);
+    transform: translate(-50%, -50%);
+    box-shadow: 0 0 10px rgba(227, 178, 100, 0.6);
+  }
+  #panel {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.35rem;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: rgba(9, 9, 14, 0.55);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+  #panel button {
+    appearance: none;
+    border: 0;
+    background: transparent;
+    color: var(--muted);
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.66rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    padding: 0.5rem 0.95rem;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: color 0.25s, background 0.25s;
+    white-space: nowrap;
+  }
+  #panel button:hover { color: var(--ink); }
+  #panel button.active { color: #0a0a0d; background: var(--amber); }
+  #panel .sep { width: 1px; height: 1.1rem; background: var(--line); margin: 0 0.3rem; }
+  #panel .date {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.66rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink);
+    padding: 0 0.95rem;
+    min-width: 14ch;
+    text-align: center;
+  }
+
+  /* ---- quake tooltip ---- */
+  #tip {
+    position: fixed;
+    z-index: 9;
+    pointer-events: none;
+    background: rgba(9, 9, 14, 0.85);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 0.55rem 0.8rem;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.64rem;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    line-height: 1.9;
+    opacity: 0;
+    transition: opacity 0.15s;
+    max-width: 300px;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+  }
+  #tip.on { opacity: 1; }
+  #tip b { color: var(--amber); font-weight: 500; }
+
+  #veil {
+    position: fixed; inset: 0; z-index: 10;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1.1rem;
+    background: #07070c;
+    transition: opacity 1.2s ease;
+  }
+  #veil.gone { opacity: 0; pointer-events: none; }
+  #veil .word {
+    font-family: Fraunces, serif;
+    font-style: italic;
+    font-weight: 350;
+    font-size: clamp(1.6rem, 4vw, 2.4rem);
+    color: var(--ink);
+  }
+  #veil .detail {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.66rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  #veil .bar {
+    width: 120px; height: 1px;
+    background: var(--line);
+    position: relative;
+    overflow: hidden;
+  }
+  #veil .bar::after {
+    content: "";
+    position: absolute; inset: 0;
+    background: var(--amber);
+    transform: translateX(-100%);
+    animation: sweep 1.4s ease-in-out infinite;
+  }
+  @keyframes sweep {
+    0% { transform: translateX(-100%); }
+    60% { transform: translateX(0); }
+    100% { transform: translateX(100%); }
+  }
+
+  @media (max-width: 760px) {
+    #hint, #stats, #legend { display: none; }
+    #deck { width: 92vw; }
+  }
+</style>
+</head>
+<body>
+
+<div id="scene"></div>
+
+<div class="ui" id="masthead">
+  <a class="back" href="../">← Index</a>
+  <h1>Restless Earth</h1>
+  <div class="sub"><b>live</b> usgs feed · last 30 days</div>
+</div>
+
+<div class="ui" id="stats"></div>
+
+<div class="ui" id="legend">
+  <i style="background:#e3b264"></i>shallow &lt; 70 km<br>
+  <i style="background:#8d7bff"></i>intermediate<br>
+  <i style="background:#ff6fae"></i>deep &gt; 300 km
+</div>
+
+<div class="ui" id="hint">
+  drag to spin · wheel to zoom<br>
+  hover a quake for its story
+</div>
+
+<div class="ui" id="deck">
+  <div id="timeline"><div class="rail"><div class="fill" id="fill"></div><div class="knob" id="knob"></div></div></div>
+  <div id="panel">
+    <button id="play">Replay month</button>
+    <button id="now" class="active">Now</button>
+    <div class="sep"></div>
+    <span class="date" id="date">—</span>
+  </div>
+</div>
+
+<div id="tip"></div>
+
+<div id="veil">
+  <div class="word">Restless Earth</div>
+  <div class="bar"></div>
+  <div class="detail" id="veil-detail">calling the U.S. Geological Survey</div>
+</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.166.1/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.166.1/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+const veil = document.getElementById('veil');
+const veilDetail = document.getElementById('veil-detail');
+
+let THREE, OrbitControls, topo, feed, topoLib;
+try {
+  THREE = await import('three');
+  ({ OrbitControls } = await import('three/addons/controls/OrbitControls.js'));
+  topoLib = await import('https://cdn.jsdelivr.net/npm/topojson-client@3/+esm');
+  [topo, feed] = await Promise.all([
+    fetch('https://cdn.jsdelivr.net/npm/world-atlas@2/land-110m.json').then(r => r.json()),
+    fetch('https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/2.5_month.geojson').then(r => r.json()),
+  ]);
+} catch (err) {
+  veilDetail.textContent = 'could not reach the USGS or CDN — check your connection';
+  throw err;
+}
+
+/* ============================================================
+   Scene
+   ============================================================ */
+const R = 10;
+const container = document.getElementById('scene');
+const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+container.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x07070c);
+
+const camera = new THREE.PerspectiveCamera(45, innerWidth / innerHeight, 0.1, 400);
+camera.position.set(-18, 11, 28);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.dampingFactor = 0.06;
+controls.enablePan = false;
+controls.minDistance = 13.5;
+controls.maxDistance = 60;
+controls.autoRotate = true;
+controls.autoRotateSpeed = 0.4;
+
+function llToV3(lat, lon, r) {
+  const phi = (90 - lat) * Math.PI / 180;
+  const theta = (lon + 180) * Math.PI / 180;
+  return new THREE.Vector3(
+    -r * Math.sin(phi) * Math.cos(theta),
+    r * Math.cos(phi),
+    r * Math.sin(phi) * Math.sin(theta),
+  );
+}
+
+/* ---- opaque inner sphere occludes the far side ---- */
+scene.add(new THREE.Mesh(
+  new THREE.SphereGeometry(R - 0.05, 64, 48),
+  new THREE.MeshBasicMaterial({ color: 0x0a0a11 }),
+));
+
+/* ---- coastlines from topojson ---- */
+{
+  const land = topoLib.mesh(topo, topo.objects.land);
+  const verts = [];
+  const lines = land.type === 'MultiLineString' ? land.coordinates : [land.coordinates];
+  for (const line of lines) {
+    for (let i = 0; i < line.length - 1; i++) {
+      const a = llToV3(line[i][1], line[i][0], R);
+      const b = llToV3(line[i + 1][1], line[i + 1][0], R);
+      verts.push(a.x, a.y, a.z, b.x, b.y, b.z);
+    }
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(verts), 3));
+  scene.add(new THREE.LineSegments(g, new THREE.LineBasicMaterial({
+    color: 0xece9e2, transparent: true, opacity: 0.38,
+  })));
+}
+
+/* ---- faint graticule ---- */
+{
+  const verts = [];
+  const seg = (a, b) => verts.push(a.x, a.y, a.z, b.x, b.y, b.z);
+  for (let lat = -60; lat <= 60; lat += 30)
+    for (let lon = -180; lon < 180; lon += 4)
+      seg(llToV3(lat, lon, R), llToV3(lat, lon + 4, R));
+  for (let lon = -180; lon < 180; lon += 30)
+    for (let lat = -84; lat < 84; lat += 4)
+      seg(llToV3(lat, lon, R), llToV3(lat + 4, lon, R));
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(verts), 3));
+  scene.add(new THREE.LineSegments(g, new THREE.LineBasicMaterial({
+    color: 0xece9e2, transparent: true, opacity: 0.05,
+  })));
+}
+
+/* ---- atmosphere fresnel ---- */
+scene.add(new THREE.Mesh(
+  new THREE.SphereGeometry(R * 1.025, 64, 48),
+  new THREE.ShaderMaterial({
+    side: THREE.BackSide,
+    transparent: true,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+    vertexShader: `
+      varying vec3 vN, vP;
+      void main() {
+        vN = normalize(normalMatrix * normal);
+        vec4 mv = modelViewMatrix * vec4(position, 1.0);
+        vP = mv.xyz;
+        gl_Position = projectionMatrix * mv;
+      }`,
+    fragmentShader: `
+      varying vec3 vN, vP;
+      void main() {
+        float f = pow(1.0 + dot(normalize(vP), normalize(vN)), 3.5);
+        gl_FragColor = vec4(vec3(0.35, 0.42, 0.62) * f * 0.35, f * 0.35);
+      }`,
+  }),
+));
+
+/* ---- distant stars ---- */
+{
+  const n = 900, sp = new Float32Array(n * 3);
+  for (let i = 0; i < n; i++) {
+    const v = new THREE.Vector3().randomDirection().multiplyScalar(150 + Math.random() * 120);
+    sp.set([v.x, v.y, v.z], i * 3);
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(sp, 3));
+  scene.add(new THREE.Points(g, new THREE.PointsMaterial({
+    size: 1.3, sizeAttenuation: false, color: 0x5d6478,
+    transparent: true, opacity: 0.6, depthWrite: false,
+  })));
+}
+
+/* ============================================================
+   Quakes
+   ============================================================ */
+const quakes = feed.features
+  .filter(f => f.properties.mag !== null && f.geometry)
+  .map(f => ({
+    lon: f.geometry.coordinates[0],
+    lat: f.geometry.coordinates[1],
+    depth: Math.max(f.geometry.coordinates[2], 0),
+    mag: f.properties.mag,
+    place: f.properties.place || 'unknown location',
+    time: f.properties.time,
+  }))
+  .sort((a, b) => a.time - b.time);
+
+const T0 = quakes[0].time;
+const T1 = Math.max(quakes[quakes.length - 1].time, feed.metadata.generated);
+
+const amber = new THREE.Color('#e3b264');
+const violet = new THREE.Color('#8d7bff');
+const pink = new THREE.Color('#ff6fae');
+function depthColor(d) {
+  const t = Math.min(Math.sqrt(d / 600), 1);
+  const c = new THREE.Color();
+  if (t < 0.5) c.copy(amber).lerp(violet, t * 2);
+  else c.copy(violet).lerp(pink, (t - 0.5) * 2);
+  return c;
+}
+
+const N = quakes.length;
+const pos = new Float32Array(N * 3);
+const col = new Float32Array(N * 3);
+const size = new Float32Array(N);
+const tNorm = new Float32Array(N);
+quakes.forEach((q, i) => {
+  const v = llToV3(q.lat, q.lon, R + 0.06);
+  pos.set([v.x, v.y, v.z], i * 3);
+  const c = depthColor(q.depth);
+  col.set([c.r, c.g, c.b], i * 3);
+  size[i] = Math.min(1.1 * Math.pow(1.55, q.mag - 2.5), 16);
+  tNorm[i] = (q.time - T0) / (T1 - T0);
+});
+
+const qGeo = new THREE.BufferGeometry();
+qGeo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+qGeo.setAttribute('aColor', new THREE.BufferAttribute(col, 3));
+qGeo.setAttribute('aSize', new THREE.BufferAttribute(size, 1));
+qGeo.setAttribute('aTime', new THREE.BufferAttribute(tNorm, 1));
+
+const qUniforms = {
+  uNow: { value: 1 },
+  uPixelRatio: { value: renderer.getPixelRatio() },
+};
+const qMat = new THREE.ShaderMaterial({
+  uniforms: qUniforms,
+  transparent: true,
+  depthWrite: false,
+  blending: THREE.AdditiveBlending,
+  vertexShader: `
+    attribute vec3 aColor;
+    attribute float aSize, aTime;
+    uniform float uNow, uPixelRatio;
+    varying vec3 vColor;
+    varying float vRecent, vAlive;
+    void main() {
+      vAlive = step(aTime, uNow);
+      float rec = clamp(1.0 - (uNow - aTime) * 16.0, 0.0, 1.0) * vAlive;
+      vRecent = rec;
+      vColor = aColor;
+      vec4 mv = modelViewMatrix * vec4(position, 1.0);
+      gl_Position = projectionMatrix * mv;
+      gl_PointSize = aSize * (1.0 + 2.4 * rec * rec) * uPixelRatio * (36.0 / -mv.z) * vAlive;
+    }`,
+  fragmentShader: `
+    varying vec3 vColor;
+    varying float vRecent, vAlive;
+    void main() {
+      if (vAlive < 0.5) discard;
+      float d = length(gl_PointCoord - 0.5);
+      if (d > 0.5) discard;
+      float a = smoothstep(0.5, 0.06, d);
+      a *= a * (0.68 + 0.32 * vRecent);
+      gl_FragColor = vec4(vColor * (1.0 + vRecent * 1.3), a);
+    }`,
+});
+const qPoints = new THREE.Points(qGeo, qMat);
+scene.add(qPoints);
+
+/* ---- shock rings for big quakes during replay ---- */
+const ringPool = [];
+const ringGeo = new THREE.RingGeometry(0.92, 1, 48);
+for (let i = 0; i < 14; i++) {
+  const m = new THREE.Mesh(ringGeo, new THREE.MeshBasicMaterial({
+    color: 0xe3b264, transparent: true, opacity: 0,
+    side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending,
+  }));
+  m.visible = false;
+  scene.add(m);
+  ringPool.push({ mesh: m, born: 0, mag: 0 });
+}
+let ringIdx = 0;
+function spawnRing(q) {
+  const r = ringPool[ringIdx++ % ringPool.length];
+  const v = llToV3(q.lat, q.lon, R + 0.09);
+  r.mesh.position.copy(v);
+  r.mesh.lookAt(v.clone().multiplyScalar(2));
+  r.mesh.visible = true;
+  r.born = performance.now();
+  r.mag = q.mag;
+}
+function updateRings(now) {
+  for (const r of ringPool) {
+    if (!r.mesh.visible) continue;
+    const t = (now - r.born) / 1300;
+    if (t >= 1) { r.mesh.visible = false; continue; }
+    const s = 0.25 + t * (0.5 + (r.mag - 5.5) * 0.45);
+    r.mesh.scale.setScalar(Math.max(s, 0.01));
+    r.mesh.material.opacity = (1 - t) * 0.85;
+  }
+}
+
+/* ============================================================
+   Stats
+   ============================================================ */
+const biggest = quakes.reduce((a, b) => (b.mag > a.mag ? b : a));
+const fmtDay = new Intl.DateTimeFormat('en', { month: 'short', day: '2-digit', timeZone: 'UTC' });
+const fmtFull = new Intl.DateTimeFormat('en', {
+  month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit', timeZone: 'UTC', hour12: false,
+});
+document.getElementById('stats').innerHTML =
+  `<b>${N.toLocaleString()}</b> quakes · M2.5+ · 30 days<br>` +
+  `largest <b>M ${biggest.mag.toFixed(1)}</b><br>` +
+  `feed generated ${fmtFull.format(feed.metadata.generated)} UTC`;
+
+/* ============================================================
+   Timeline
+   ============================================================ */
+const fillEl = document.getElementById('fill');
+const knobEl = document.getElementById('knob');
+const dateEl = document.getElementById('date');
+const playBtn = document.getElementById('play');
+const nowBtn = document.getElementById('now');
+const timelineEl = document.getElementById('timeline');
+
+let playhead = 1;          // 0..1 across the month
+let playing = false;
+const REPLAY_SECONDS = 26;
+
+function setPlayhead(p, fromPlayback = false) {
+  const prev = playhead;
+  playhead = Math.min(Math.max(p, 0), 1);
+  qUniforms.uNow.value = playhead;
+  fillEl.style.width = `${playhead * 100}%`;
+  knobEl.style.left = `${playhead * 100}%`;
+  dateEl.textContent = playhead >= 1 ? 'NOW' : fmtFull.format(T0 + playhead * (T1 - T0)) + ' UTC';
+  // shock rings for M5.5+ crossing the playhead while replaying
+  if (fromPlayback && playhead > prev) {
+    for (const q of quakes) {
+      const qt = (q.time - T0) / (T1 - T0);
+      if (qt > prev && qt <= playhead && q.mag >= 5.5) spawnRing(q);
+    }
+  }
+  nowBtn.classList.toggle('active', playhead >= 1 && !playing);
+}
+
+function setPlaying(on) {
+  playing = on;
+  playBtn.textContent = on ? 'Pause' : (playhead >= 1 ? 'Replay month' : 'Resume');
+  playBtn.classList.toggle('active', on);
+}
+
+playBtn.addEventListener('click', () => {
+  if (!playing && playhead >= 1) setPlayhead(0);
+  setPlaying(!playing);
+});
+nowBtn.addEventListener('click', () => { setPlaying(false); setPlayhead(1); setPlaying(false); });
+
+let scrubbing = false;
+function scrubTo(clientX) {
+  const r = timelineEl.getBoundingClientRect();
+  setPlayhead((clientX - r.left) / r.width);
+}
+timelineEl.addEventListener('pointerdown', e => {
+  scrubbing = true;
+  setPlaying(false);
+  timelineEl.setPointerCapture(e.pointerId);
+  scrubTo(e.clientX);
+});
+timelineEl.addEventListener('pointermove', e => { if (scrubbing) scrubTo(e.clientX); });
+timelineEl.addEventListener('pointerup', () => { scrubbing = false; });
+addEventListener('keydown', e => {
+  if (e.key === ' ') { e.preventDefault(); playBtn.click(); }
+});
+
+/* ============================================================
+   Hover tooltip
+   ============================================================ */
+const tip = document.getElementById('tip');
+const raycaster = new THREE.Raycaster();
+raycaster.params.Points.threshold = 0.22;
+const ndc = new THREE.Vector2();
+let pointer = { x: 0, y: 0, fresh: false };
+addEventListener('pointermove', e => {
+  pointer = { x: e.clientX, y: e.clientY, fresh: true };
+});
+
+function hoverCheck() {
+  if (!pointer.fresh) return;
+  pointer.fresh = false;
+  ndc.set((pointer.x / innerWidth) * 2 - 1, -(pointer.y / innerHeight) * 2 + 1);
+  raycaster.setFromCamera(ndc, camera);
+  const hits = raycaster.intersectObject(qPoints);
+  let found = null;
+  for (const h of hits) {
+    const i = h.index;
+    if (tNorm[i] > playhead) continue;                       // not struck yet
+    const p = new THREE.Vector3(pos[i * 3], pos[i * 3 + 1], pos[i * 3 + 2]);
+    if (p.dot(camera.position) <= 0) continue;               // far side of the globe
+    found = i;
+    break;
+  }
+  if (found !== null) {
+    const q = quakes[found];
+    tip.innerHTML =
+      `<b>M ${q.mag.toFixed(1)}</b> · ${q.place}<br>` +
+      `${fmtFull.format(q.time)} UTC · depth ${Math.round(q.depth)} km`;
+    tip.style.left = `${Math.min(pointer.x + 16, innerWidth - 320)}px`;
+    tip.style.top = `${Math.min(pointer.y + 14, innerHeight - 80)}px`;
+    tip.classList.add('on');
+    controls.autoRotate = false;
+  } else {
+    tip.classList.remove('on');
+    controls.autoRotate = true;
+  }
+}
+
+/* ============================================================
+   Frame loop
+   ============================================================ */
+const clock = new THREE.Clock();
+function tick() {
+  requestAnimationFrame(tick);
+  // real elapsed time, uncapped: the replay keeps wall-clock pace even if
+  // the browser throttles rAF and frames arrive late
+  const dt = clock.getDelta();
+  if (playing) {
+    setPlayhead(playhead + dt / REPLAY_SECONDS, true);
+    if (playhead >= 1) setPlaying(false);
+  }
+  updateRings(performance.now());
+  hoverCheck();
+  controls.update();
+  renderer.render(scene, camera);
+}
+
+setPlayhead(1);
+tick();
+requestAnimationFrame(() => requestAnimationFrame(() => veil.classList.add('gone')));
+
+addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+  qUniforms.uPixelRatio.value = renderer.getPixelRatio();
+});
+</script>
+</body>
+</html>
