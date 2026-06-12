@@ -9,7 +9,7 @@ A gallery of interactive pieces written entirely by **Claude Fable 5** — Anthr
 | # | Work | Capability | What's inside |
 |---|---|---|---|
 | 01 | [Genesis](3d/) | Three.js · GPU particles | 220,000 particles in one custom shader morphing between a spiral galaxy, Saturn, a torus knot, DNA, a Lorenz attractor, and type — simplex-noise turbulence, UnrealBloom post-processing, world-space cursor repulsion, orbit camera |
-| 02 | [Little Path Tracer](raytracer/) | Ray tracing | A progressive path tracer in pure JS: global illumination, soft sun shadows, mirror and glossy materials, emissive night lamps — one jittered sample per pixel per frame, converging live |
+| 02 | [Little Path Tracer](raytracer/) | Path tracing · GLSL | A progressive path tracer in a single GLSL fragment shader: physically-based glass, gold and chrome, emissive area lights, thin-lens depth of field, ACES tone mapping — accumulating samples at full frame rate on the GPU, with three lit scenes and PNG export |
 | 03 | [Watch It Learn](neural/) | Machine learning | A multilayer perceptron with Fourier-feature inputs — forward pass, backpropagation, and Adam hand-written — trains live in the tab to paint a target image, including one you doodle yourself |
 | 04 | [Endless Symphony](music/) | Generative music | An infinite composition: chords, bass, melody, and drums improvised from a seed, every instrument synthesized from raw oscillators through a hand-built reverb and delay |
 | 05 | [Neon Breakout](games/) | Game development | Complete arcade game: combo scoring, armored bricks, particle explosions, screen shake, and a WebAudio synthesizer for sound effects |

@@ -350,10 +350,10 @@
         <span class="num">02</span>
         <span>
           <h2>Little Path Tracer</h2>
-          <p>True global illumination, ray by ray: soft shadows, mirror bounces, and glowing
-            night lamps converging live on your CPU.</p>
+          <p>True global illumination in a single GLSL fragment shader — gold, glass, depth
+            of field — refining hundreds of samples a second on your GPU.</p>
         </span>
-        <span class="tag mono">Ray tracing</span>
+        <span class="tag mono">Path tracing · GLSL</span>
         <span class="arrow">→</span>
       </a></li>
 
@@ -465,24 +465,31 @@
 <template id="pv-tracer">
   <svg viewBox="0 0 300 190" preserveAspectRatio="xMidYMid slice">
     <defs>
-      <radialGradient id="pgta" cx="0.35" cy="0.3">
-        <stop offset="0" stop-color="#fff"/><stop offset="0.25" stop-color="#cfd8ea"/><stop offset="1" stop-color="#39435c"/>
+      <radialGradient id="pgtglow" cx="0.22" cy="0.05" r="1">
+        <stop offset="0" stop-color="#ffd9a0" stop-opacity="0.42"/><stop offset="1" stop-color="#ffd9a0" stop-opacity="0"/>
       </radialGradient>
-      <radialGradient id="pgtb" cx="0.35" cy="0.3">
-        <stop offset="0" stop-color="#ffd9a8"/><stop offset="1" stop-color="#b3502e"/>
+      <radialGradient id="pgtivory" cx="0.32" cy="0.28">
+        <stop offset="0" stop-color="#fff8ec"/><stop offset="0.6" stop-color="#cfc6b4"/><stop offset="1" stop-color="#55514a"/>
       </radialGradient>
-      <linearGradient id="pgtsky" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0" stop-color="#1c2747"/><stop offset="1" stop-color="#4c3658"/>
-      </linearGradient>
+      <radialGradient id="pgtgold" cx="0.32" cy="0.28">
+        <stop offset="0" stop-color="#ffe2a8"/><stop offset="1" stop-color="#7c5119"/>
+      </radialGradient>
+      <radialGradient id="pgtamber" cx="0.35" cy="0.25">
+        <stop offset="0" stop-color="#ffeccb"/><stop offset="0.7" stop-color="#d99b48"/><stop offset="1" stop-color="#8a5c22"/>
+      </radialGradient>
     </defs>
-    <rect width="300" height="135" fill="url(#pgtsky)"/>
-    <rect y="135" width="300" height="55" fill="#11141f"/>
-    <circle cx="245" cy="42" r="14" fill="#ffe9b8" opacity="0.95"/>
-    <ellipse cx="150" cy="138" rx="44" ry="7" fill="#000" opacity="0.5"/>
-    <circle cx="150" cy="98" r="40" fill="url(#pgta)"/>
-    <ellipse cx="82" cy="142" rx="22" ry="4" fill="#000" opacity="0.45"/>
-    <circle cx="82" cy="124" r="19" fill="url(#pgtb)"/>
-    <circle cx="138" cy="86" r="10" fill="#fff" opacity="0.55"/>
+    <rect width="300" height="190" fill="#08080d"/>
+    <rect width="300" height="190" fill="url(#pgtglow)"/>
+    <rect y="132" width="300" height="58" fill="#0c0c11"/>
+    <ellipse cx="105" cy="136" rx="40" ry="6" fill="#000" opacity="0.55"/>
+    <ellipse cx="180" cy="139" rx="28" ry="4.5" fill="#000" opacity="0.5"/>
+    <ellipse cx="236" cy="137" rx="30" ry="5" fill="#3a2c16" opacity="0.55"/>
+    <circle cx="105" cy="100" r="36" fill="url(#pgtivory)"/>
+    <circle cx="180" cy="115" r="24" fill="url(#pgtgold)"/>
+    <circle cx="236" cy="106" r="30" fill="url(#pgtamber)" opacity="0.92"/>
+    <circle cx="226" cy="95" r="9" fill="#fff" opacity="0.5"/>
+    <circle cx="150" cy="134" r="11" fill="#ffb45c" opacity="0.22"/>
+    <circle cx="150" cy="134" r="5" fill="#ffcf8e"/>
   </svg>
 </template>
 

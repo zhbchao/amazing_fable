@@ -3,439 +3,709 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Little Path Tracer — Fable 5 Showcase</title>
+<meta name="theme-color" content="#08080d">
+<title>Little Path Tracer — true light, one shader · Fable 5</title>
+<meta name="description" content="A progressive path tracer in a single GLSL fragment shader: physically-based glass, gold and chrome, emissive lights, depth of field, ACES tone mapping — accumulating on your GPU. Built by Claude Fable 5.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..700;1,9..144,300..700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
-  :root { --bg: #06080f; --text: #e8edf7; --muted: #8b96ad; --border: rgba(140,160,200,0.18); }
+  :root {
+    --ink: #ece9e2;
+    --muted: #8a8fa3;
+    --amber: #e3b264;
+    --line: rgba(236, 233, 226, 0.14);
+  }
   * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; }
   body {
-    background: var(--bg);
-    color: var(--text);
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    height: 100vh;
-    display: flex;
-    flex-direction: column;
+    background: #08080d;
+    color: var(--ink);
+    font-family: Inter, -apple-system, sans-serif;
     overflow: hidden;
   }
-  header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0.9rem 1.4rem;
-    z-index: 2;
+  canvas { display: block; }
+  #scene { position: fixed; inset: 0; cursor: grab; }
+  #scene.dragging { cursor: grabbing; }
+
+  .ui { position: fixed; z-index: 5; }
+  .ui a { color: inherit; }
+
+  #masthead { top: 1.4rem; left: 1.6rem; }
+  #masthead .back {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--muted);
+    text-decoration: none;
+    transition: color 0.2s;
   }
-  header a { color: var(--muted); text-decoration: none; font-size: 0.9rem; }
-  header a:hover { color: var(--text); }
-  header .title { font-weight: 700; }
-  header .title em {
-    font-style: normal;
-    background: linear-gradient(90deg, #facc15, #f472b6);
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
+  #masthead .back:hover { color: var(--ink); }
+  #masthead h1 {
+    margin-top: 0.7rem;
+    font-family: Fraunces, serif;
+    font-style: italic;
+    font-weight: 380;
+    font-size: clamp(1.5rem, 3vw, 2.1rem);
+    letter-spacing: 0.01em;
+    line-height: 1;
   }
-  #stage { flex: 1; position: relative; display: flex; align-items: center; justify-content: center; }
-  canvas#view {
-    width: 100%;
-    height: 100%;
-    object-fit: contain;
-    image-rendering: auto;
-    cursor: grab;
-    touch-action: none;
+  #masthead .sub {
+    margin-top: 0.55rem;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.66rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--muted);
   }
-  canvas#view.dragging { cursor: grabbing; }
-  .panel {
-    position: absolute;
-    bottom: 1.2rem;
-    left: 50%;
+  #masthead .sub b { color: var(--amber); font-weight: 500; }
+
+  #stats {
+    top: 1.5rem; right: 1.6rem;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.66rem;
+    letter-spacing: 0.14em;
+    color: var(--muted);
+    text-align: right;
+    line-height: 1.9;
+  }
+  #stats b { color: var(--ink); font-weight: 500; }
+
+  #panel {
+    bottom: 1.6rem; left: 50%;
     transform: translateX(-50%);
     display: flex;
-    gap: 0.5rem;
-    flex-wrap: wrap;
-    justify-content: center;
-    background: rgba(10,16,28,0.85);
-    border: 1px solid var(--border);
-    border-radius: 14px;
-    padding: 0.6rem 0.8rem;
-    backdrop-filter: blur(8px);
-    z-index: 2;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.35rem;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: rgba(10, 10, 16, 0.55);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
   }
-  .panel button {
-    background: rgba(255,255,255,0.05);
-    color: var(--text);
-    border: 1px solid var(--border);
-    border-radius: 9px;
-    padding: 0.45rem 0.95rem;
-    font-size: 0.86rem;
-    font-weight: 600;
+  #panel button {
+    appearance: none;
+    border: 0;
+    background: transparent;
+    color: var(--muted);
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.66rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    padding: 0.5rem 0.95rem;
+    border-radius: 999px;
     cursor: pointer;
-    font-family: inherit;
-    transition: background 0.15s, border-color 0.15s;
+    transition: color 0.25s, background 0.25s;
+    white-space: nowrap;
   }
-  .panel button:hover { background: rgba(255,255,255,0.1); }
-  .panel button.active { background: rgba(250,204,21,0.22); border-color: #facc15; }
-  .stats {
-    position: absolute;
-    top: 0.8rem;
-    right: 1.2rem;
+  #panel button:hover { color: var(--ink); }
+  #panel button.active { color: #0a0a0d; background: var(--amber); }
+  #panel .sep { width: 1px; height: 1.1rem; background: var(--line); margin: 0 0.3rem; }
+
+  #hint {
+    bottom: 1.9rem; right: 1.6rem;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.62rem;
+    letter-spacing: 0.14em;
     color: var(--muted);
-    font-size: 0.76rem;
     text-align: right;
-    line-height: 1.7;
-    font-variant-numeric: tabular-nums;
-    z-index: 2;
-    pointer-events: none;
+    line-height: 2;
+    opacity: 0.85;
   }
-  .hint {
-    position: absolute;
-    top: 0.8rem;
-    left: 1.2rem;
+
+  #veil {
+    position: fixed; inset: 0; z-index: 10;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1.1rem;
+    background: #08080d;
+    transition: opacity 1.2s ease;
+  }
+  #veil.gone { opacity: 0; pointer-events: none; }
+  #veil .word {
+    font-family: Fraunces, serif;
+    font-style: italic;
+    font-weight: 350;
+    font-size: clamp(1.6rem, 4vw, 2.4rem);
+    color: var(--ink);
+  }
+  #veil .detail {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.66rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
     color: var(--muted);
-    font-size: 0.8rem;
-    line-height: 1.7;
-    z-index: 2;
-    pointer-events: none;
+  }
+  #veil .bar {
+    width: 120px; height: 1px;
+    background: var(--line);
+    position: relative;
+    overflow: hidden;
+  }
+  #veil .bar::after {
+    content: "";
+    position: absolute; inset: 0;
+    background: var(--amber);
+    transform: translateX(-100%);
+    animation: sweep 1.4s ease-in-out infinite;
+  }
+  @keyframes sweep {
+    0% { transform: translateX(-100%); }
+    60% { transform: translateX(0); }
+    100% { transform: translateX(100%); }
+  }
+
+  @media (max-width: 760px) {
+    #hint, #stats { display: none; }
+    #panel { max-width: 94vw; overflow-x: auto; scrollbar-width: none; }
+    #panel::-webkit-scrollbar { display: none; }
   }
 </style>
 </head>
 <body>
-<header>
-  <a href="../">← Fable 5 Showcase</a>
-  <span class="title">LITTLE <em>PATH TRACER</em></span>
-  <span style="width:110px"></span>
-</header>
-<div id="stage">
-  <canvas id="view"></canvas>
-  <div class="hint">drag to orbit · scroll to dolly · hold still and watch the noise melt away<br>every pixel is a ray of light, bounced and averaged on your CPU</div>
-  <div class="stats" id="stats"></div>
-  <div class="panel">
-    <button data-sky="0" class="active">☀️ Noon</button>
-    <button data-sky="1">🌇 Sunset</button>
-    <button data-sky="2">🌙 Night</button>
-    <button id="shuffle">🎲 Shuffle scene</button>
-  </div>
+
+<div id="scene"></div>
+
+<div class="ui" id="masthead">
+  <a class="back" href="../">← Index</a>
+  <h1>Little Path Tracer</h1>
+  <div class="sub">true light · <b>one</b> fragment shader</div>
 </div>
 
-<script>
-'use strict';
-// =============================================================
-//  A progressive path tracer in pure JavaScript. Global
-//  illumination, soft shadows, mirror + glossy materials,
-//  emissive night lamps — one jittered sample per pixel per
-//  frame, accumulated until the image converges.
-// =============================================================
-const view = document.getElementById('view');
-const vctx = view.getContext('2d');
-const RW = 300, RH = 188;                 // render resolution
-const buf = new Float32Array(RW * RH * 3);
-const img = new ImageData(RW, RH);
-const back = document.createElement('canvas');
-back.width = RW; back.height = RH;
-const bctx = back.getContext('2d');
-let spp = 0;                              // accumulated samples per pixel
+<div class="ui" id="stats">
+  <div><b id="spp">0</b> SAMPLES / PX</div>
+  <div><b id="fps">—</b> FPS · <span id="mpx">0</span> MPX</div>
+</div>
 
-// ---------------- tiny vec3 on flat arrays ----------------
-function v(x, y, z) { return [x, y, z]; }
-const add = (a, b) => [a[0]+b[0], a[1]+b[1], a[2]+b[2]];
-const sub = (a, b) => [a[0]-b[0], a[1]-b[1], a[2]-b[2]];
-const mul = (a, s) => [a[0]*s, a[1]*s, a[2]*s];
-const mulv = (a, b) => [a[0]*b[0], a[1]*b[1], a[2]*b[2]];
-const dot = (a, b) => a[0]*b[0] + a[1]*b[1] + a[2]*b[2];
-const norm = a => { const l = Math.sqrt(dot(a, a)) || 1; return [a[0]/l, a[1]/l, a[2]/l]; };
-const reflect = (d, n) => sub(d, mul(n, 2 * dot(d, n)));
+<div class="ui" id="panel"></div>
 
-// ---------------- scene ----------------
-let spheres = [];
-let seedN = 7;
-function rnd() { seedN = (seedN * 1103515245 + 12345) & 0x7fffffff; return seedN / 0x7fffffff; }
+<div class="ui" id="hint">
+  drag to orbit · wheel to dolly<br>
+  space pauses · the image refines forever
+</div>
 
-const PALETTE = [
-  [0.95, 0.35, 0.45], [0.30, 0.75, 0.95], [0.98, 0.70, 0.25],
-  [0.55, 0.90, 0.55], [0.80, 0.55, 0.98], [0.95, 0.85, 0.80]
+<div id="veil">
+  <div class="word">Little Path Tracer</div>
+  <div class="bar"></div>
+  <div class="detail" id="veil-detail">compiling the light transport</div>
+</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.166.1/build/three.module.js"
+  }
+}
+</script>
+
+<script type="module">
+const veil = document.getElementById('veil');
+const veilDetail = document.getElementById('veil-detail');
+
+let THREE;
+try {
+  THREE = await import('three');
+} catch (err) {
+  veilDetail.textContent = 'could not reach the three.js CDN — check your connection';
+  throw err;
+}
+
+/* ============================================================
+   Renderer & accumulation targets
+   ============================================================ */
+const isMobile = matchMedia('(pointer: coarse)').matches || innerWidth < 760;
+const container = document.getElementById('scene');
+const renderer = new THREE.WebGLRenderer({
+  antialias: false,
+  preserveDrawingBuffer: true, // for PNG export
+  powerPreference: 'high-performance',
+});
+if (!renderer.capabilities.isWebGL2) {
+  veilDetail.textContent = 'this piece needs WebGL2';
+  throw new Error('WebGL2 required');
+}
+// path tracing is per-pixel work — render slightly under native res
+const RES_SCALE = isMobile ? 0.55 : 0.8;
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2) * RES_SCALE);
+renderer.setSize(innerWidth, innerHeight);
+container.appendChild(renderer.domElement);
+
+const floatType = renderer.extensions.get('EXT_color_buffer_float')
+  ? THREE.FloatType : THREE.HalfFloatType;
+
+function makeTargets() {
+  const s = renderer.getDrawingBufferSize(new THREE.Vector2());
+  const opts = {
+    type: floatType,
+    format: THREE.RGBAFormat,
+    minFilter: THREE.NearestFilter,
+    magFilter: THREE.NearestFilter,
+    depthBuffer: false,
+    stencilBuffer: false,
+  };
+  return [new THREE.WebGLRenderTarget(s.x, s.y, opts), new THREE.WebGLRenderTarget(s.x, s.y, opts)];
+}
+let [rtA, rtB] = makeTargets();
+
+/* ============================================================
+   Scenes — JS data, generic shader
+   ============================================================ */
+const MAXS = 10;
+// type: 0 diffuse · 1 metal · 2 glass · 3 emissive
+const SCENES = [
+  {
+    name: 'Still Life', exposure: 1.25,
+    env: { h: [0.055, 0.05, 0.062], z: [0.012, 0.015, 0.024] },
+    floor: { alb: [0.06, 0.058, 0.064], rough: 0.28 },
+    spheres: [
+      { c: [-1.5, 1.0, -0.3], r: 1.0, alb: [0.91, 0.88, 0.82], type: 0 },
+      { c: [0.45, 0.75, 1.15], r: 0.75, alb: [1.0, 0.72, 0.31], type: 1, rough: 0.14 },
+      { c: [1.8, 0.92, -0.55], r: 0.92, alb: [0.96, 0.8, 0.55], type: 2, rough: 0.02, ior: 1.5 },
+      { c: [-0.55, 0.42, 1.65], r: 0.42, alb: [0.92, 0.93, 0.95], type: 1, rough: 0.03 },
+      { c: [0.85, 0.26, 0.35], r: 0.26, type: 3, emis: [1.0, 0.62, 0.3], pow: 5 },
+      { c: [-6.5, 9.5, 5.0], r: 4.6, type: 3, emis: [1.0, 0.88, 0.7], pow: 11 },
+      { c: [8.5, 6.0, -7.0], r: 3.2, type: 3, emis: [0.45, 0.62, 1.0], pow: 3.2 },
+    ],
+  },
+  {
+    name: 'Dusk', exposure: 1.12,
+    env: { h: [0.47, 0.25, 0.15], z: [0.05, 0.08, 0.17] },
+    floor: { alb: [0.075, 0.07, 0.066], rough: 0.45 },
+    spheres: [
+      { c: [0.0, 1.05, 0.0], r: 1.05, alb: [0.95, 0.95, 0.95], type: 1, rough: 0.02 },
+      { c: [-2.0, 0.7, 0.9], r: 0.7, alb: [0.72, 0.33, 0.21], type: 0 },
+      { c: [1.9, 0.62, 1.1], r: 0.62, alb: [0.32, 0.4, 0.52], type: 0 },
+      { c: [0.6, 0.5, 2.0], r: 0.5, alb: [0.97, 0.97, 0.97], type: 2, rough: 0.0, ior: 1.5 },
+      { c: [-1.0, 0.34, 2.2], r: 0.34, alb: [1.0, 0.72, 0.3], type: 1, rough: 0.1 },
+      { c: [-26, 7.5, -34], r: 7.0, type: 3, emis: [1.0, 0.68, 0.42], pow: 26 },
+    ],
+  },
+  {
+    name: 'Neon', exposure: 1.35,
+    env: { h: [0.012, 0.012, 0.02], z: [0.004, 0.004, 0.008] },
+    floor: { alb: [0.03, 0.03, 0.036], rough: 0.12 },
+    spheres: [
+      { c: [0.0, 0.95, 0.0], r: 0.95, alb: [0.94, 0.94, 0.95], type: 1, rough: 0.02 },
+      { c: [1.0, 0.62, 1.5], r: 0.62, alb: [0.97, 0.97, 0.97], type: 2, rough: 0.0, ior: 1.5 },
+      { c: [-0.9, 0.62, 2.0], r: 0.62, alb: [0.85, 0.85, 0.85], type: 0 },
+      { c: [1.7, 0.55, -0.9], r: 0.55, type: 3, emis: [1.0, 0.12, 0.42], pow: 4.2 },
+      { c: [-1.7, 0.5, 0.8], r: 0.5, type: 3, emis: [0.08, 0.75, 1.0], pow: 4.2 },
+      { c: [0.2, 2.7, 0.4], r: 0.4, type: 3, emis: [0.45, 0.2, 1.0], pow: 5 },
+    ],
+  },
 ];
 
-function buildScene() {
-  spheres = [
-    // one big mirror ball is always the centerpiece
-    { c: v(0, 1.05, 0), r: 1.05, type: 1, col: [0.95, 0.95, 0.97], gloss: 0, emit: null }
-  ];
-  for (let i = 0; i < 7; i++) {
-    let placed = false;
-    for (let tries = 0; tries < 60 && !placed; tries++) {
-      const r = 0.28 + rnd() * 0.5;
-      const ang = rnd() * Math.PI * 2;
-      const d = 1.7 + rnd() * 2.6;
-      const c = v(Math.cos(ang) * d, r, Math.sin(ang) * d);
-      let ok = true;
-      for (const s of spheres) {
-        const dd = sub(c, s.c);
-        if (Math.sqrt(dot(dd, dd)) < r + s.r + 0.12) { ok = false; break; }
+/* ============================================================
+   Shaders
+   ============================================================ */
+const vert = /* glsl */`
+in vec3 position;
+void main() { gl_Position = vec4(position, 1.0); }
+`;
+
+const traceFrag = /* glsl */`
+precision highp float;
+precision highp int;
+
+uniform sampler2D uPrev;
+uniform vec2 uRes;
+uniform int uFrame;
+uniform vec3 uCamPos, uCamRight, uCamUp, uCamFwd;
+uniform float uFovScale, uAperture, uFocus;
+uniform int uCount;
+uniform vec4 uSph[${MAXS}];   // center xyz, radius
+uniform vec4 uAlb[${MAXS}];   // albedo rgb, type
+uniform vec4 uMat[${MAXS}];   // roughness, ior, -, -
+uniform vec3 uEmis[${MAXS}];  // emission (pre-scaled)
+uniform vec3 uEnvH, uEnvZ;
+uniform vec4 uFloor;          // albedo rgb, roughness
+
+out vec4 fragColor;
+
+/* ---- PCG random ---- */
+uint pcg(inout uint state) {
+  state = state * 747796405u + 2891336453u;
+  uint w = ((state >> ((state >> 28u) + 4u)) ^ state) * 277803737u;
+  return (w >> 22u) ^ w;
+}
+float rnd(inout uint s) { return float(pcg(s)) / 4294967296.0; }
+
+vec3 sphereDir(inout uint s) {
+  float z = rnd(s) * 2.0 - 1.0;
+  float a = rnd(s) * 6.2831853;
+  float r = sqrt(max(0.0, 1.0 - z * z));
+  return vec3(r * cos(a), r * sin(a), z);
+}
+vec3 cosHemi(vec3 n, inout uint s) {
+  float r1 = rnd(s) * 6.2831853, r2 = rnd(s);
+  float r = sqrt(r2);
+  vec3 t = normalize(cross(n, abs(n.y) < 0.99 ? vec3(0, 1, 0) : vec3(1, 0, 0)));
+  vec3 b = cross(n, t);
+  return normalize(t * cos(r1) * r + b * sin(r1) * r + n * sqrt(1.0 - r2));
+}
+
+vec3 env(vec3 d) {
+  return mix(uEnvH, uEnvZ, smoothstep(-0.05, 0.6, d.y));
+}
+
+float iSphere(vec3 ro, vec3 rd, vec4 sph) {
+  vec3 oc = ro - sph.xyz;
+  float b = dot(oc, rd);
+  float c = dot(oc, oc) - sph.w * sph.w;
+  float disc = b * b - c;
+  if (disc < 0.0) return -1.0;
+  float sq = sqrt(disc);
+  float t = -b - sq;
+  if (t < 1e-3) t = -b + sq;
+  return (t < 1e-3) ? -1.0 : t;
+}
+
+vec3 radiance(vec3 ro, vec3 rd, inout uint seed) {
+  vec3 col = vec3(0.0), thr = vec3(1.0);
+  for (int bounce = 0; bounce < 8; bounce++) {
+    // nearest hit: spheres + ground plane
+    float tBest = 1e30;
+    int id = -1;          // -2 floor, >=0 sphere
+    if (rd.y < -1e-6) {
+      float t = -ro.y / rd.y;
+      if (t > 1e-3) { tBest = t; id = -2; }
+    }
+    for (int i = 0; i < ${MAXS}; i++) {
+      if (i >= uCount) break;
+      float t = iSphere(ro, rd, uSph[i]);
+      if (t > 0.0 && t < tBest) { tBest = t; id = i; }
+    }
+    if (id == -1) { col += thr * env(rd); break; }
+
+    vec3 p = ro + rd * tBest;
+    vec3 n, alb;
+    float type, rough, ior;
+    if (id == -2) {
+      n = vec3(0, 1, 0);
+      alb = uFloor.rgb; type = 1.0; rough = uFloor.w; ior = 0.0;
+    } else {
+      n = (p - uSph[id].xyz) / uSph[id].w;
+      alb = uAlb[id].rgb; type = uAlb[id].w;
+      rough = uMat[id].x; ior = uMat[id].y;
+      if (type > 2.5) { col += thr * uEmis[id]; break; }
+    }
+
+    if (type < 0.5) {                       /* diffuse */
+      thr *= alb;
+      vec3 nl = dot(rd, n) < 0.0 ? n : -n;
+      rd = cosHemi(nl, seed);
+      ro = p + nl * 2e-3;
+    } else if (type < 1.5) {                /* metal */
+      thr *= alb;
+      vec3 nl = dot(rd, n) < 0.0 ? n : -n;
+      rd = normalize(reflect(rd, nl) + rough * sphereDir(seed));
+      if (dot(rd, nl) <= 0.0) break;        // absorbed into the surface
+      ro = p + nl * 2e-3;
+    } else {                                /* glass */
+      vec3 nl = dot(rd, n) < 0.0 ? n : -n;
+      bool entering = dot(rd, n) < 0.0;
+      float eta = entering ? 1.0 / ior : ior;
+      float cosi = -dot(rd, nl);
+      vec3 refr = refract(rd, nl, eta);
+      float f0 = pow((1.0 - ior) / (1.0 + ior), 2.0);
+      float fres = f0 + (1.0 - f0) * pow(1.0 - cosi, 5.0);
+      if (refr == vec3(0.0) || rnd(seed) < fres) {
+        rd = normalize(reflect(rd, nl) + rough * sphereDir(seed));
+        ro = p + nl * 2e-3;
+      } else {
+        thr *= alb;
+        rd = normalize(refr + rough * sphereDir(seed));
+        ro = p - nl * 2e-3;
       }
-      if (!ok) continue;
-      const roll = rnd();
-      const col = PALETTE[(rnd() * PALETTE.length) | 0];
-      spheres.push({
-        c, r,
-        type: roll < 0.55 ? 0 : roll < 0.8 ? 2 : 1,   // diffuse | glossy | mirror
-        col,
-        gloss: 0.12 + rnd() * 0.2,
-        emit: null
-      });
-      placed = true;
+    }
+
+    // russian roulette
+    if (bounce > 2) {
+      float q = clamp(max(thr.r, max(thr.g, thr.b)), 0.05, 0.95);
+      if (rnd(seed) > q) break;
+      thr /= q;
     }
   }
-  // at night, two of the small spheres become glowing lamps
-  if (skyMode === 2) {
-    let lit = 0;
-    for (let i = 1; i < spheres.length && lit < 2; i++) {
-      if (spheres[i].type === 0) {
-        const col = PALETTE[(rnd() * PALETTE.length) | 0];
-        spheres[i].emit = mul(col, 9);
-        spheres[i].type = 0;
-        lit++;
-      }
-    }
-  }
+  return min(col, vec3(14.0)); // tame fireflies
+}
+
+void main() {
+  uint seed = uint(gl_FragCoord.x) * 1973u
+            + uint(gl_FragCoord.y) * 9277u
+            + uint(uFrame) * 26699u + 1u;
+
+  vec2 jit = vec2(rnd(seed), rnd(seed));
+  vec2 uv = ((gl_FragCoord.xy + jit) / uRes) * 2.0 - 1.0;
+  uv.x *= uRes.x / uRes.y;
+
+  vec3 dir = normalize(uCamFwd + uFovScale * (uv.x * uCamRight + uv.y * uCamUp));
+
+  // thin-lens depth of field
+  vec3 fp = uCamPos + dir * (uFocus / dot(dir, uCamFwd));
+  float ar = sqrt(rnd(seed)) * uAperture;
+  float aa = rnd(seed) * 6.2831853;
+  vec3 ro = uCamPos + uCamRight * (ar * cos(aa)) + uCamUp * (ar * sin(aa));
+  vec3 rd = normalize(fp - ro);
+
+  vec3 prev = uFrame > 0 ? texelFetch(uPrev, ivec2(gl_FragCoord.xy), 0).rgb : vec3(0.0);
+  fragColor = vec4(prev + radiance(ro, rd, seed), 1.0);
+}
+`;
+
+const viewFrag = /* glsl */`
+precision highp float;
+uniform sampler2D uAcc;
+uniform int uFrame;
+uniform float uExposure;
+uniform vec2 uRes;
+out vec4 fragColor;
+
+vec3 aces(vec3 x) {
+  return clamp((x * (2.51 * x + 0.03)) / (x * (2.43 * x + 0.59) + 0.14), 0.0, 1.0);
+}
+
+void main() {
+  vec3 c = texelFetch(uAcc, ivec2(gl_FragCoord.xy), 0).rgb / float(max(uFrame, 1));
+  c = aces(c * uExposure);
+  // gentle vignette
+  vec2 q = gl_FragCoord.xy / uRes;
+  c *= 0.72 + 0.28 * pow(16.0 * q.x * q.y * (1.0 - q.x) * (1.0 - q.y), 0.28);
+  c = pow(c, vec3(1.0 / 2.2));
+  fragColor = vec4(c, 1.0);
+}
+`;
+
+/* ============================================================
+   Materials, fullscreen triangle
+   ============================================================ */
+const traceUniforms = {
+  uPrev:     { value: rtA.texture },
+  uRes:      { value: new THREE.Vector2() },
+  uFrame:    { value: 0 },
+  uCamPos:   { value: new THREE.Vector3() },
+  uCamRight: { value: new THREE.Vector3() },
+  uCamUp:    { value: new THREE.Vector3() },
+  uCamFwd:   { value: new THREE.Vector3() },
+  uFovScale: { value: Math.tan(THREE.MathUtils.degToRad(33) / 2) },
+  uAperture: { value: 0.085 },
+  uFocus:    { value: 7 },
+  uCount:    { value: 0 },
+  uSph:      { value: Array.from({ length: MAXS }, () => new THREE.Vector4()) },
+  uAlb:      { value: Array.from({ length: MAXS }, () => new THREE.Vector4()) },
+  uMat:      { value: Array.from({ length: MAXS }, () => new THREE.Vector4()) },
+  uEmis:     { value: Array.from({ length: MAXS }, () => new THREE.Vector3()) },
+  uEnvH:     { value: new THREE.Vector3() },
+  uEnvZ:     { value: new THREE.Vector3() },
+  uFloor:    { value: new THREE.Vector4() },
+};
+const viewUniforms = {
+  uAcc:      { value: rtB.texture },
+  uFrame:    { value: 1 },
+  uExposure: { value: 1.25 },
+  uRes:      { value: new THREE.Vector2() },
+};
+
+const traceMat = new THREE.RawShaderMaterial({
+  glslVersion: THREE.GLSL3, uniforms: traceUniforms,
+  vertexShader: vert, fragmentShader: traceFrag,
+});
+const viewMat = new THREE.RawShaderMaterial({
+  glslVersion: THREE.GLSL3, uniforms: viewUniforms,
+  vertexShader: vert, fragmentShader: viewFrag,
+});
+
+const tri = new THREE.BufferGeometry();
+tri.setAttribute('position', new THREE.BufferAttribute(
+  new Float32Array([-1, -1, 0, 3, -1, 0, -1, 3, 0]), 3));
+const quad = new THREE.Mesh(tri, traceMat);
+quad.frustumCulled = false;
+const fsScene = new THREE.Scene();
+fsScene.add(quad);
+const dummyCam = new THREE.Camera();
+
+/* ============================================================
+   Scene loading & camera
+   ============================================================ */
+let sceneIdx = 0;
+let frame = 0;
+let paused = false;
+
+function loadScene(i) {
+  const s = SCENES[i];
+  const u = traceUniforms;
+  s.spheres.forEach((sp, k) => {
+    u.uSph.value[k].set(...sp.c, sp.r);
+    u.uAlb.value[k].set(...(sp.alb ?? [1, 1, 1]), sp.type);
+    u.uMat.value[k].set(sp.rough ?? 0, sp.ior ?? 0, 0, 0);
+    const e = sp.emis ?? [0, 0, 0];
+    u.uEmis.value[k].set(e[0] * (sp.pow ?? 1), e[1] * (sp.pow ?? 1), e[2] * (sp.pow ?? 1));
+  });
+  u.uCount.value = s.spheres.length;
+  u.uEnvH.value.set(...s.env.h);
+  u.uEnvZ.value.set(...s.env.z);
+  u.uFloor.value.set(...s.floor.alb, s.floor.rough);
+  viewUniforms.uExposure.value = s.exposure;
+  sceneIdx = i;
+  [...panel.querySelectorAll('[data-scene]')].forEach((b, k) =>
+    b.classList.toggle('active', k === i));
   resetAccum();
 }
 
-// sky / sun per mode
-const SKIES = [
-  { sun: norm(v(-0.45, 0.75, 0.35)), sunCol: [9.5, 8.8, 7.5], sunAng: 0.05,
-    horizon: [0.75, 0.85, 1.0], zenith: [0.25, 0.45, 0.85], ground: 0.9 },
-  { sun: norm(v(-0.85, 0.16, 0.2)), sunCol: [11, 5.5, 2.2], sunAng: 0.07,
-    horizon: [0.98, 0.55, 0.30], zenith: [0.25, 0.20, 0.45], ground: 0.65 },
-  { sun: norm(v(-0.5, 0.5, 0.3)), sunCol: [0.45, 0.55, 0.9], sunAng: 0.06,
-    horizon: [0.05, 0.07, 0.14], zenith: [0.01, 0.015, 0.04], ground: 0.35 }
-];
-let skyMode = 0;
+const target = new THREE.Vector3(0, 0.8, 0.2);
+const cam = { az: 0.55, el: 0.32, radius: 7.2 };
 
-function skyColor(rd) {
-  const S = SKIES[skyMode];
-  const t = Math.max(0, rd[1]);
-  let col = [
-    S.horizon[0] + (S.zenith[0] - S.horizon[0]) * t,
-    S.horizon[1] + (S.zenith[1] - S.horizon[1]) * t,
-    S.horizon[2] + (S.zenith[2] - S.horizon[2]) * t
-  ];
-  const sd = dot(rd, S.sun);
-  if (sd > 0.9985) col = add(col, mul(S.sunCol, 2.5));            // sun disk
-  else if (sd > 0.99) col = add(col, mul(S.sunCol, 0.12));        // halo
-  return col;
-}
-
-// ---------------- intersection ----------------
-// returns [t, sphereIdx] — idx -1 = ground plane
-function intersect(ro, rd) {
-  let bestT = Infinity, bestI = -2;
-  if (rd[1] < -1e-6) {                     // plane y = 0
-    const t = -ro[1] / rd[1];
-    if (t > 1e-4) { bestT = t; bestI = -1; }
-  }
-  for (let i = 0; i < spheres.length; i++) {
-    const s = spheres[i];
-    const ox = ro[0]-s.c[0], oy = ro[1]-s.c[1], oz = ro[2]-s.c[2];
-    const b = ox*rd[0] + oy*rd[1] + oz*rd[2];
-    const cc = ox*ox + oy*oy + oz*oz - s.r*s.r;
-    const disc = b*b - cc;
-    if (disc < 0) continue;
-    const sq = Math.sqrt(disc);
-    let t = -b - sq;
-    if (t < 1e-4) t = -b + sq;
-    if (t > 1e-4 && t < bestT) { bestT = t; bestI = i; }
-  }
-  return [bestT, bestI];
-}
-
-function shadowed(p, ld) {
-  const [t, i] = intersect(p, ld);
-  if (i === -2) return false;
-  if (i >= 0 && spheres[i].emit) return false;   // lamps don't block their own kind much
-  return t < 60;
-}
-
-// cosine-weighted hemisphere sample around normal
-function cosineDir(n) {
-  const r1 = Math.random() * Math.PI * 2;
-  const r2 = Math.random();
-  const sq = Math.sqrt(r2);
-  // build tangent frame
-  const a = Math.abs(n[1]) < 0.95 ? v(0, 1, 0) : v(1, 0, 0);
-  const t1 = norm([a[1]*n[2]-a[2]*n[1], a[2]*n[0]-a[0]*n[2], a[0]*n[1]-a[1]*n[0]]);
-  const t2 = [n[1]*t1[2]-n[2]*t1[1], n[2]*t1[0]-n[0]*t1[2], n[0]*t1[1]-n[1]*t1[0]];
-  const x = Math.cos(r1) * sq, y = Math.sin(r1) * sq, z = Math.sqrt(1 - r2);
-  return norm([
-    t1[0]*x + t2[0]*y + n[0]*z,
-    t1[1]*x + t2[1]*y + n[1]*z,
-    t1[2]*x + t2[2]*y + n[2]*z
-  ]);
-}
-
-// ---------------- the path tracer ----------------
-function trace(ro, rd, depth) {
-  const [t, i] = intersect(ro, rd);
-  if (i === -2) return skyColor(rd);
-
-  const p = add(ro, mul(rd, t));
-  let n, albedo, type, gloss = 0, emit = null;
-  if (i === -1) {                          // checkerboard ground
-    n = v(0, 1, 0);
-    const g = SKIES[skyMode].ground;
-    const check = ((Math.floor(p[0] * 0.9) + Math.floor(p[2] * 0.9)) & 1) === 0;
-    albedo = check ? [0.85 * g, 0.85 * g, 0.9 * g] : [0.22 * g, 0.24 * g, 0.3 * g];
-    type = 0;
-  } else {
-    const s = spheres[i];
-    n = norm(sub(p, s.c));
-    albedo = s.col; type = s.type; gloss = s.gloss; emit = s.emit;
-  }
-  if (emit) return emit;
-
-  if (type === 1 || type === 2) {          // mirror / glossy
-    if (depth >= 3) return skyColor(rd);
-    let rdir = reflect(rd, n);
-    if (type === 2) {
-      rdir = norm(add(rdir, mul(cosineDir(n), gloss)));
-      if (dot(rdir, n) < 0) rdir = reflect(rdir, n);
-    }
-    const bounce = trace(add(p, mul(n, 1e-4)), rdir, depth + 1);
-    const tint = type === 1 ? albedo : add(mul(albedo, 0.55), [0.4, 0.4, 0.4]);
-    return mulv(bounce, tint);
-  }
-
-  // diffuse: direct sun light (sampled in a cone for soft shadows) ...
-  const S = SKIES[skyMode];
-  let out = [0, 0, 0];
-  const ld = norm(add(S.sun, mul(cosineDir(S.sun), S.sunAng * 6)));
-  const nl = dot(n, ld);
-  if (nl > 0 && !shadowed(add(p, mul(n, 1e-4)), ld)) {
-    out = add(out, mul(mulv(albedo, S.sunCol), nl * 0.22));
-  }
-  // ... plus one indirect GI bounce along a cosine-weighted direction
-  if (depth < 2) {
-    const gi = trace(add(p, mul(n, 1e-4)), cosineDir(n), depth + 1);
-    out = add(out, mulv(albedo, gi));
-  } else {
-    out = add(out, mulv(albedo, mul(skyColor(n), 0.5)));   // cheap sky term at the leaf
-  }
-  return out;
-}
-
-// ---------------- camera ----------------
-let camTheta = 0.6, camPhi = 0.32, camDist = 9.5;
-function render() {
-  const target = v(0, 0.9, 0);
-  const cp = Math.cos(camPhi), sp = Math.sin(camPhi);
-  const ct = Math.cos(camTheta), st = Math.sin(camTheta);
-  const ro = add(target, v(camDist * cp * st, camDist * sp, camDist * cp * ct));
-  const fwd = norm(sub(target, ro));
-  const right = norm([-fwd[2], 0, fwd[0]]);
-  const up = [right[1]*fwd[2]-right[2]*fwd[1], right[2]*fwd[0]-right[0]*fwd[2], right[0]*fwd[1]-right[1]*fwd[0]];
-  const fov = 0.62;
-
-  let k = 0;
-  for (let y = 0; y < RH; y++) {
-    for (let x = 0; x < RW; x++) {
-      const u = ((x + Math.random()) / RW * 2 - 1) * fov * (RW / RH);
-      const vv = (1 - (y + Math.random()) / RH * 2) * fov;
-      const rd = norm(add(fwd, add(mul(right, u), mul(up, vv))));
-      const c = trace(ro, rd, 0);
-      buf[k]   += c[0];
-      buf[k+1] += c[1];
-      buf[k+2] += c[2];
-      k += 3;
-    }
-  }
-  spp++;
-
-  // tonemap (reinhard-ish) + gamma, blit
-  const d = img.data;
-  let j = 0;
-  for (let i2 = 0; i2 < RW * RH * 3; i2 += 3) {
-    for (let ch = 0; ch < 3; ch++) {
-      const val = buf[i2 + ch] / spp * 0.8;
-      const tone = val / (1 + val);
-      d[j + ch] = Math.min(255, Math.pow(tone, 1 / 2.2) * 270);
-    }
-    d[j + 3] = 255;
-    j += 4;
-  }
-  bctx.putImageData(img, 0, 0);
+function updateCamera() {
+  const u = traceUniforms;
+  const ce = Math.cos(cam.el);
+  u.uCamPos.value.set(
+    target.x + cam.radius * ce * Math.sin(cam.az),
+    target.y + cam.radius * Math.sin(cam.el),
+    target.z + cam.radius * ce * Math.cos(cam.az),
+  );
+  u.uCamFwd.value.copy(target).sub(u.uCamPos.value).normalize();
+  u.uCamRight.value.crossVectors(u.uCamFwd.value, new THREE.Vector3(0, 1, 0)).normalize();
+  u.uCamUp.value.crossVectors(u.uCamRight.value, u.uCamFwd.value);
+  u.uFocus.value = cam.radius * 0.96; // hold focus just shy of the centre of the group
 }
 
 function resetAccum() {
-  buf.fill(0);
-  spp = 0;
+  frame = 0;
+  renderer.setRenderTarget(rtA); renderer.clear();
+  renderer.setRenderTarget(rtB); renderer.clear();
+  renderer.setRenderTarget(null);
 }
 
-// ---------------- display ----------------
-function fit() {
-  view.width = view.clientWidth;
-  view.height = view.clientHeight;
+/* ============================================================
+   UI
+   ============================================================ */
+const panel = document.getElementById('panel');
+SCENES.forEach((s, i) => {
+  const b = document.createElement('button');
+  b.textContent = s.name;
+  b.dataset.scene = i;
+  b.addEventListener('click', () => loadScene(i));
+  panel.appendChild(b);
+});
+const sep = document.createElement('div');
+sep.className = 'sep';
+panel.appendChild(sep);
+
+const pauseBtn = document.createElement('button');
+pauseBtn.textContent = 'Pause';
+pauseBtn.addEventListener('click', togglePause);
+panel.appendChild(pauseBtn);
+
+const saveBtn = document.createElement('button');
+saveBtn.textContent = 'PNG';
+saveBtn.addEventListener('click', savePNG);
+panel.appendChild(saveBtn);
+
+function togglePause() {
+  paused = !paused;
+  pauseBtn.textContent = paused ? 'Resume' : 'Pause';
 }
-addEventListener('resize', fit);
-
-let lastStats = 0, lastFrameMs = 0;
-const statsEl = document.getElementById('stats');
-function frame(now) {
-  const t0 = performance.now();
-  render();
-  lastFrameMs = performance.now() - t0;
-
-  // letterboxed blit, sharp upscale
-  const scale = Math.min(view.width / RW, view.height / RH);
-  const dw = RW * scale, dh = RH * scale;
-  vctx.fillStyle = '#06080f';
-  vctx.fillRect(0, 0, view.width, view.height);
-  vctx.imageSmoothingEnabled = true;
-  vctx.drawImage(back, (view.width - dw) / 2, (view.height - dh) / 2, dw, dh);
-
-  if (now - lastStats > 400) {
-    lastStats = now;
-    const rays = (RW * RH * spp / 1e6).toFixed(1);
-    statsEl.innerHTML =
-      `${RW}×${RH} · ${spp} samples/pixel<br>` +
-      `${rays}M primary rays accumulated<br>` +
-      `${lastFrameMs.toFixed(0)} ms/pass · single-threaded JS`;
-  }
-  requestAnimationFrame(frame);
+function savePNG() {
+  const a = document.createElement('a');
+  a.download = `path-traced-${SCENES[sceneIdx].name.toLowerCase().replace(/\s/g, '-')}-${frame}spp.png`;
+  a.href = renderer.domElement.toDataURL('image/png');
+  a.click();
 }
 
-// ---------------- interaction ----------------
-let dragging = false, lx = 0, ly = 0;
-function down(x, y) { dragging = true; lx = x; ly = y; view.classList.add('dragging'); }
-function move(x, y) {
+/* ---- orbit (no damping: every move restarts the integral) ---- */
+let dragging = false, px = 0, py = 0;
+container.addEventListener('pointerdown', e => {
+  dragging = true; px = e.clientX; py = e.clientY;
+  container.classList.add('dragging');
+  container.setPointerCapture(e.pointerId);
+});
+container.addEventListener('pointermove', e => {
   if (!dragging) return;
-  camTheta -= (x - lx) * 0.006;
-  camPhi = Math.max(0.06, Math.min(1.3, camPhi + (y - ly) * 0.004));
-  lx = x; ly = y;
-  resetAccum();
-}
-function up() { dragging = false; view.classList.remove('dragging'); }
-view.addEventListener('mousedown', e => down(e.clientX, e.clientY));
-addEventListener('mousemove', e => move(e.clientX, e.clientY));
-addEventListener('mouseup', up);
-view.addEventListener('touchstart', e => { e.preventDefault(); down(e.touches[0].clientX, e.touches[0].clientY); }, { passive: false });
-view.addEventListener('touchmove', e => { e.preventDefault(); move(e.touches[0].clientX, e.touches[0].clientY); }, { passive: false });
-view.addEventListener('touchend', up);
-view.addEventListener('wheel', e => {
+  cam.az -= (e.clientX - px) * 0.005;
+  cam.el = Math.min(Math.max(cam.el + (e.clientY - py) * 0.005, 0.03), 1.35);
+  px = e.clientX; py = e.clientY;
+  if (paused) togglePause();
+  updateCamera(); resetAccum();
+});
+container.addEventListener('pointerup', () => {
+  dragging = false;
+  container.classList.remove('dragging');
+});
+container.addEventListener('wheel', e => {
   e.preventDefault();
-  camDist = Math.max(4, Math.min(20, camDist * (e.deltaY > 0 ? 1.07 : 0.93)));
-  resetAccum();
+  cam.radius = Math.min(Math.max(cam.radius * (1 + e.deltaY * 0.001), 3.2), 18);
+  if (paused) togglePause();
+  updateCamera(); resetAccum();
 }, { passive: false });
 
-document.querySelectorAll('[data-sky]').forEach(btn => btn.addEventListener('click', () => {
-  skyMode = +btn.dataset.sky;
-  document.querySelectorAll('[data-sky]').forEach(b => b.classList.toggle('active', b === btn));
-  buildScene();                            // re-roll lamps for night
-}));
-document.getElementById('shuffle').addEventListener('click', () => {
-  seedN = (Math.random() * 0x7fffffff) | 0;
-  buildScene();
+addEventListener('keydown', e => {
+  if (e.key === ' ') { e.preventDefault(); togglePause(); }
+  else if (e.key === 's' || e.key === 'S') savePNG();
+  else {
+    const n = parseInt(e.key, 10);
+    if (n >= 1 && n <= SCENES.length) loadScene(n - 1);
+  }
 });
 
-fit();
-buildScene();
-requestAnimationFrame(frame);
+/* ============================================================
+   Frame loop — trace into ping-pong, then tone-map to screen
+   ============================================================ */
+const sppEl = document.getElementById('spp');
+const fpsEl = document.getElementById('fps');
+const mpxEl = document.getElementById('mpx');
+let frames = 0, fpsAt = performance.now();
+
+function tick() {
+  requestAnimationFrame(tick);
+  if (!paused) {
+    const size = renderer.getDrawingBufferSize(new THREE.Vector2());
+    traceUniforms.uRes.value.copy(size);
+    viewUniforms.uRes.value.copy(size);
+    traceUniforms.uFrame.value = frame;
+    traceUniforms.uPrev.value = rtA.texture;
+
+    quad.material = traceMat;
+    renderer.setRenderTarget(rtB);
+    renderer.render(fsScene, dummyCam);
+
+    frame++;
+    viewUniforms.uFrame.value = frame;
+    viewUniforms.uAcc.value = rtB.texture;
+
+    quad.material = viewMat;
+    renderer.setRenderTarget(null);
+    renderer.render(fsScene, dummyCam);
+
+    [rtA, rtB] = [rtB, rtA];
+  }
+
+  frames++;
+  const now = performance.now();
+  if (now - fpsAt > 600) {
+    fpsEl.textContent = Math.round(frames * 1000 / (now - fpsAt));
+    sppEl.textContent = frame.toLocaleString();
+    frames = 0; fpsAt = now;
+  }
+}
+
+addEventListener('resize', () => {
+  renderer.setSize(innerWidth, innerHeight);
+  rtA.dispose(); rtB.dispose();
+  [rtA, rtB] = makeTargets();
+  const size = renderer.getDrawingBufferSize(new THREE.Vector2());
+  mpxEl.textContent = (size.x * size.y / 1e6).toFixed(1);
+  updateCamera(); resetAccum();
+});
+
+const size0 = renderer.getDrawingBufferSize(new THREE.Vector2());
+mpxEl.textContent = (size0.x * size0.y / 1e6).toFixed(1);
+updateCamera();
+loadScene(0);
+tick();
+requestAnimationFrame(() => requestAnimationFrame(() => veil.classList.add('gone')));
 </script>
 </body>
 </html>
