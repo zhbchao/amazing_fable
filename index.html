@@ -315,10 +315,10 @@
   <header class="hero">
     <p class="kicker mono">Fable 5 · A working showcase</p>
     <h1>Everything here was <em>imagined, designed, and&nbsp;coded</em> by a machine.</h1>
-    <p class="sub">Nine interactive pieces — a quarter-million-particle universe, a path
-      tracer, a neural network learning live in your tab, an endless symphony —
-      built end to end by <strong>Claude Fable 5</strong>. Every file, every shader,
-      every note. Click anything.</p>
+    <p class="sub">Nine interactive pieces — a quarter-million-particle universe, a fluid
+      you can pour with your cursor, a neural network learning live in your tab, an
+      endless symphony — built end to end by <strong>Claude Fable 5</strong>. Every file,
+      every shader, every note. Click anything.</p>
     <div class="meta mono">
       <span>Three.js / WebGL</span>
       <span>Web Audio</span>
@@ -346,14 +346,15 @@
         <span class="arrow">→</span>
       </a></li>
 
-      <li><a class="work" href="raytracer/" data-preview="pv-tracer">
+      <li><a class="work" href="ink/" data-preview="pv-ink">
         <span class="num">02</span>
         <span>
-          <h2>Little Path Tracer</h2>
-          <p>True global illumination in a single GLSL fragment shader — gold, glass, depth
-            of field — refining hundreds of samples a second on your GPU.</p>
+          <h2>Ink</h2><span class="new">New</span>
+          <p>A real Navier–Stokes solver in WebGL: drag to pour luminous ink and watch
+            vorticity curl it into storms — velocity, pressure, and dye fields computed
+            every frame.</p>
         </span>
-        <span class="tag mono">Path tracing · GLSL</span>
+        <span class="tag mono">Fluid dynamics · GPU</span>
         <span class="arrow">→</span>
       </a></li>
 
@@ -462,34 +463,28 @@
   </svg>
 </template>
 
-<template id="pv-tracer">
+<template id="pv-ink">
   <svg viewBox="0 0 300 190" preserveAspectRatio="xMidYMid slice">
     <defs>
-      <radialGradient id="pgtglow" cx="0.22" cy="0.05" r="1">
-        <stop offset="0" stop-color="#ffd9a0" stop-opacity="0.42"/><stop offset="1" stop-color="#ffd9a0" stop-opacity="0"/>
-      </radialGradient>
-      <radialGradient id="pgtivory" cx="0.32" cy="0.28">
-        <stop offset="0" stop-color="#fff8ec"/><stop offset="0.6" stop-color="#cfc6b4"/><stop offset="1" stop-color="#55514a"/>
-      </radialGradient>
-      <radialGradient id="pgtgold" cx="0.32" cy="0.28">
-        <stop offset="0" stop-color="#ffe2a8"/><stop offset="1" stop-color="#7c5119"/>
-      </radialGradient>
-      <radialGradient id="pgtamber" cx="0.35" cy="0.25">
-        <stop offset="0" stop-color="#ffeccb"/><stop offset="0.7" stop-color="#d99b48"/><stop offset="1" stop-color="#8a5c22"/>
-      </radialGradient>
+      <linearGradient id="pvink1" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stop-color="#38e8ff"/><stop offset="1" stop-color="#7c6cff"/>
+      </linearGradient>
+      <linearGradient id="pvink2" x1="1" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#ff6fae"/><stop offset="1" stop-color="#e3b264"/>
+      </linearGradient>
+      <filter id="pvinkblur" x="-40%" y="-40%" width="180%" height="180%">
+        <feGaussianBlur stdDeviation="5"/>
+      </filter>
     </defs>
-    <rect width="300" height="190" fill="#08080d"/>
-    <rect width="300" height="190" fill="url(#pgtglow)"/>
-    <rect y="132" width="300" height="58" fill="#0c0c11"/>
-    <ellipse cx="105" cy="136" rx="40" ry="6" fill="#000" opacity="0.55"/>
-    <ellipse cx="180" cy="139" rx="28" ry="4.5" fill="#000" opacity="0.5"/>
-    <ellipse cx="236" cy="137" rx="30" ry="5" fill="#3a2c16" opacity="0.55"/>
-    <circle cx="105" cy="100" r="36" fill="url(#pgtivory)"/>
-    <circle cx="180" cy="115" r="24" fill="url(#pgtgold)"/>
-    <circle cx="236" cy="106" r="30" fill="url(#pgtamber)" opacity="0.92"/>
-    <circle cx="226" cy="95" r="9" fill="#fff" opacity="0.5"/>
-    <circle cx="150" cy="134" r="11" fill="#ffb45c" opacity="0.22"/>
-    <circle cx="150" cy="134" r="5" fill="#ffcf8e"/>
+    <rect width="300" height="190" fill="#07070c"/>
+    <g fill="none" stroke-linecap="round" filter="url(#pvinkblur)" opacity="0.8">
+      <path d="M45,148 C85,38 195,28 222,92 C238,140 168,158 152,120 C140,90 188,72 206,94" stroke="url(#pvink1)" stroke-width="16"/>
+      <path d="M68,55 C130,178 226,150 248,84" stroke="url(#pvink2)" stroke-width="11"/>
+    </g>
+    <g fill="none" stroke-linecap="round" opacity="0.95">
+      <path d="M45,148 C85,38 195,28 222,92 C238,140 168,158 152,120 C140,90 188,72 206,94" stroke="url(#pvink1)" stroke-width="3.5"/>
+      <path d="M68,55 C130,178 226,150 248,84" stroke="url(#pvink2)" stroke-width="2.5"/>
+    </g>
   </svg>
 </template>
 

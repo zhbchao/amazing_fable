@@ -1,0 +1,741 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#07070c">
+<title>Ink — a fluid you can pour · Fable 5</title>
+<meta name="description" content="A real-time Navier–Stokes fluid solver in WebGL: drag to pour luminous ink, watch vorticity curl it into storms. Velocity, pressure, and dye fields computed every frame. Built by Claude Fable 5.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..700;1,9..144,300..700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #ece9e2;
+    --muted: #8a8fa3;
+    --amber: #e3b264;
+    --line: rgba(236, 233, 226, 0.14);
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    background: #07070c;
+    color: var(--ink);
+    font-family: Inter, -apple-system, sans-serif;
+    overflow: hidden;
+  }
+  canvas { display: block; }
+  #scene { position: fixed; inset: 0; cursor: crosshair; touch-action: none; }
+
+  .ui { position: fixed; z-index: 5; pointer-events: none; }
+  .ui a, .ui button { pointer-events: auto; }
+  .ui a { color: inherit; }
+
+  #masthead { top: 1.4rem; left: 1.6rem; }
+  #masthead .back {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--muted);
+    text-decoration: none;
+    transition: color 0.2s;
+  }
+  #masthead .back:hover { color: var(--ink); }
+  #masthead h1 {
+    margin-top: 0.7rem;
+    font-family: Fraunces, serif;
+    font-style: italic;
+    font-weight: 380;
+    font-size: clamp(1.7rem, 3.4vw, 2.4rem);
+    letter-spacing: 0.01em;
+    line-height: 1;
+  }
+  #masthead .sub {
+    margin-top: 0.55rem;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.66rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  #masthead .sub b { color: var(--amber); font-weight: 500; }
+
+  #stats {
+    top: 1.5rem; right: 1.6rem;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.66rem;
+    letter-spacing: 0.14em;
+    color: var(--muted);
+    text-align: right;
+    line-height: 1.9;
+  }
+  #stats b { color: var(--ink); font-weight: 500; }
+
+  #panel {
+    bottom: 1.6rem; left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.35rem;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: rgba(9, 9, 14, 0.55);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    pointer-events: auto;
+  }
+  #panel button {
+    appearance: none;
+    border: 0;
+    background: transparent;
+    color: var(--muted);
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.66rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    padding: 0.5rem 0.95rem;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: color 0.25s, background 0.25s;
+    white-space: nowrap;
+  }
+  #panel button:hover { color: var(--ink); }
+  #panel button.active { color: #0a0a0d; background: var(--amber); }
+  #panel .sep { width: 1px; height: 1.1rem; background: var(--line); margin: 0 0.3rem; }
+
+  #hint {
+    bottom: 1.9rem; right: 1.6rem;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.62rem;
+    letter-spacing: 0.14em;
+    color: var(--muted);
+    text-align: right;
+    line-height: 2;
+    opacity: 0.85;
+  }
+
+  #veil {
+    position: fixed; inset: 0; z-index: 10;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1.1rem;
+    background: #07070c;
+    transition: opacity 1.2s ease;
+  }
+  #veil.gone { opacity: 0; pointer-events: none; }
+  #veil .word {
+    font-family: Fraunces, serif;
+    font-style: italic;
+    font-weight: 350;
+    font-size: clamp(1.6rem, 4vw, 2.4rem);
+    color: var(--ink);
+  }
+  #veil .detail {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.66rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  #veil .bar {
+    width: 120px; height: 1px;
+    background: var(--line);
+    position: relative;
+    overflow: hidden;
+  }
+  #veil .bar::after {
+    content: "";
+    position: absolute; inset: 0;
+    background: var(--amber);
+    transform: translateX(-100%);
+    animation: sweep 1.4s ease-in-out infinite;
+  }
+  @keyframes sweep {
+    0% { transform: translateX(-100%); }
+    60% { transform: translateX(0); }
+    100% { transform: translateX(100%); }
+  }
+
+  @media (max-width: 760px) {
+    #hint, #stats { display: none; }
+    #panel { max-width: 94vw; overflow-x: auto; scrollbar-width: none; }
+    #panel::-webkit-scrollbar { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<div id="scene"></div>
+
+<div class="ui" id="masthead">
+  <a class="back" href="../">← Index</a>
+  <h1>Ink</h1>
+  <div class="sub">navier–stokes · <b>solved</b> every frame</div>
+</div>
+
+<div class="ui" id="stats">
+  <div><b id="fps">—</b> FPS</div>
+  <div id="grids">— · —</div>
+</div>
+
+<div class="ui" id="panel"></div>
+
+<div class="ui" id="hint">
+  draw with your cursor — press to pour<br>
+  space summons a storm · c clears
+</div>
+
+<div id="veil">
+  <div class="word">Ink</div>
+  <div class="bar"></div>
+  <div class="detail" id="veil-detail">allocating the velocity field</div>
+</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.166.1/build/three.module.js"
+  }
+}
+</script>
+
+<script type="module">
+const veil = document.getElementById('veil');
+const veilDetail = document.getElementById('veil-detail');
+
+let THREE;
+try {
+  THREE = await import('three');
+} catch (err) {
+  veilDetail.textContent = 'could not reach the three.js CDN — check your connection';
+  throw err;
+}
+
+/* ============================================================
+   Renderer
+   ============================================================ */
+const isMobile = matchMedia('(pointer: coarse)').matches || innerWidth < 760;
+const container = document.getElementById('scene');
+const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance' });
+if (!renderer.capabilities.isWebGL2) {
+  veilDetail.textContent = 'this piece needs WebGL2';
+  throw new Error('WebGL2 required');
+}
+renderer.extensions.get('EXT_color_buffer_float');
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.autoClear = false;
+container.appendChild(renderer.domElement);
+
+/* ============================================================
+   Simulation fields (ping-pong half-float targets)
+   ============================================================ */
+const SIM_BASE = isMobile ? 144 : 256;   // velocity / pressure grid
+const DYE_BASE = isMobile ? 512 : 1024;  // dye gets more pixels
+const PRESSURE_ITERS = isMobile ? 18 : 26;
+
+function gridSize(base) {
+  const aspect = innerWidth / innerHeight;
+  return aspect >= 1
+    ? new THREE.Vector2(Math.round(base * aspect), base)
+    : new THREE.Vector2(base, Math.round(base / aspect));
+}
+
+function makeRT(size, filter) {
+  return new THREE.WebGLRenderTarget(size.x, size.y, {
+    type: THREE.HalfFloatType,
+    format: THREE.RGBAFormat,
+    minFilter: filter,
+    magFilter: filter,
+    wrapS: THREE.ClampToEdgeWrapping,
+    wrapT: THREE.ClampToEdgeWrapping,
+    depthBuffer: false,
+    stencilBuffer: false,
+  });
+}
+function makePair(size, filter) {
+  return { read: makeRT(size, filter), write: makeRT(size, filter),
+           swap() { [this.read, this.write] = [this.write, this.read]; } };
+}
+
+let simSize = gridSize(SIM_BASE);
+let dyeSize = gridSize(DYE_BASE);
+let velocity = makePair(simSize, THREE.LinearFilter);
+let pressure = makePair(simSize, THREE.NearestFilter);
+let divergence = makeRT(simSize, THREE.NearestFilter);
+let curlRT = makeRT(simSize, THREE.NearestFilter);
+let dye = makePair(dyeSize, THREE.LinearFilter);
+
+document.getElementById('grids').textContent =
+  `${simSize.x}×${simSize.y} VEL · ${dyeSize.x}×${dyeSize.y} DYE`;
+
+/* ============================================================
+   Shaders
+   ============================================================ */
+const vert = /* glsl */`
+in vec3 position;
+out vec2 vUv;
+void main() {
+  vUv = position.xy * 0.5 + 0.5;
+  gl_Position = vec4(position, 1.0);
+}
+`;
+
+const PRE = /* glsl */`
+precision highp float;
+in vec2 vUv;
+out vec4 frag;
+`;
+
+const advectFrag = PRE + /* glsl */`
+uniform sampler2D uVelocity, uSource;
+uniform vec2 uTexel;
+uniform float uDt, uDissipation;
+void main() {
+  vec2 coord = vUv - uDt * texture(uVelocity, vUv).xy * uTexel;
+  frag = texture(uSource, coord) / (1.0 + uDissipation * uDt);
+}
+`;
+
+const curlFrag = PRE + /* glsl */`
+uniform sampler2D uVelocity;
+uniform vec2 uTexel;
+void main() {
+  float L = texture(uVelocity, vUv - vec2(uTexel.x, 0.0)).y;
+  float R = texture(uVelocity, vUv + vec2(uTexel.x, 0.0)).y;
+  float B = texture(uVelocity, vUv - vec2(0.0, uTexel.y)).x;
+  float T = texture(uVelocity, vUv + vec2(0.0, uTexel.y)).x;
+  frag = vec4(0.5 * (R - L - T + B), 0.0, 0.0, 1.0);
+}
+`;
+
+const vorticityFrag = PRE + /* glsl */`
+uniform sampler2D uVelocity, uCurl;
+uniform vec2 uTexel;
+uniform float uStrength, uDt;
+void main() {
+  float L = texture(uCurl, vUv - vec2(uTexel.x, 0.0)).x;
+  float R = texture(uCurl, vUv + vec2(uTexel.x, 0.0)).x;
+  float B = texture(uCurl, vUv - vec2(0.0, uTexel.y)).x;
+  float T = texture(uCurl, vUv + vec2(0.0, uTexel.y)).x;
+  float C = texture(uCurl, vUv).x;
+  vec2 force = 0.5 * vec2(abs(T) - abs(B), abs(R) - abs(L));
+  force /= length(force) + 1e-4;
+  force *= uStrength * C;
+  force.y *= -1.0;
+  vec2 vel = texture(uVelocity, vUv).xy + force * uDt;
+  frag = vec4(clamp(vel, -1000.0, 1000.0), 0.0, 1.0);
+}
+`;
+
+const divergenceFrag = PRE + /* glsl */`
+uniform sampler2D uVelocity;
+uniform vec2 uTexel;
+void main() {
+  vec2 vL = vUv - vec2(uTexel.x, 0.0);
+  vec2 vR = vUv + vec2(uTexel.x, 0.0);
+  vec2 vB = vUv - vec2(0.0, uTexel.y);
+  vec2 vT = vUv + vec2(0.0, uTexel.y);
+  float L = texture(uVelocity, vL).x;
+  float R = texture(uVelocity, vR).x;
+  float B = texture(uVelocity, vB).y;
+  float T = texture(uVelocity, vT).y;
+  vec2 C = texture(uVelocity, vUv).xy;
+  if (vL.x < 0.0) L = -C.x;   // closed walls
+  if (vR.x > 1.0) R = -C.x;
+  if (vB.y < 0.0) B = -C.y;
+  if (vT.y > 1.0) T = -C.y;
+  frag = vec4(0.5 * (R - L + T - B), 0.0, 0.0, 1.0);
+}
+`;
+
+const pressureFrag = PRE + /* glsl */`
+uniform sampler2D uPressure, uDivergence;
+uniform vec2 uTexel;
+void main() {
+  float L = texture(uPressure, vUv - vec2(uTexel.x, 0.0)).x;
+  float R = texture(uPressure, vUv + vec2(uTexel.x, 0.0)).x;
+  float B = texture(uPressure, vUv - vec2(0.0, uTexel.y)).x;
+  float T = texture(uPressure, vUv + vec2(0.0, uTexel.y)).x;
+  float div = texture(uDivergence, vUv).x;
+  frag = vec4((L + R + B + T - div) * 0.25, 0.0, 0.0, 1.0);
+}
+`;
+
+const gradientFrag = PRE + /* glsl */`
+uniform sampler2D uPressure, uVelocity;
+uniform vec2 uTexel;
+void main() {
+  float L = texture(uPressure, vUv - vec2(uTexel.x, 0.0)).x;
+  float R = texture(uPressure, vUv + vec2(uTexel.x, 0.0)).x;
+  float B = texture(uPressure, vUv - vec2(0.0, uTexel.y)).x;
+  float T = texture(uPressure, vUv + vec2(0.0, uTexel.y)).x;
+  vec2 vel = texture(uVelocity, vUv).xy - vec2(R - L, T - B);
+  frag = vec4(vel, 0.0, 1.0);
+}
+`;
+
+const splatFrag = PRE + /* glsl */`
+uniform sampler2D uTarget;
+uniform vec2 uPoint;
+uniform vec3 uColor;
+uniform float uRadius, uAspect;
+void main() {
+  vec2 p = vUv - uPoint;
+  p.x *= uAspect;
+  vec3 base = texture(uTarget, vUv).xyz;
+  frag = vec4(base + exp(-dot(p, p) / uRadius) * uColor, 1.0);
+}
+`;
+
+const clearFrag = PRE + /* glsl */`
+uniform sampler2D uTexture;
+uniform float uValue;
+void main() {
+  frag = uValue * texture(uTexture, vUv);
+}
+`;
+
+const displayFrag = PRE + /* glsl */`
+uniform sampler2D uDye;
+uniform vec2 uTexel;
+void main() {
+  vec3 c = texture(uDye, vUv).rgb;
+  // sheen: light the ink by its own density gradient
+  float l = length(texture(uDye, vUv - vec2(uTexel.x, 0.0)).rgb);
+  float r = length(texture(uDye, vUv + vec2(uTexel.x, 0.0)).rgb);
+  float b = length(texture(uDye, vUv - vec2(0.0, uTexel.y)).rgb);
+  float t = length(texture(uDye, vUv + vec2(0.0, uTexel.y)).rgb);
+  vec3 n = normalize(vec3(r - l, t - b, 0.25));
+  float diffuse = clamp(dot(n, normalize(vec3(-0.4, 0.6, 1.0))) * 0.4 + 0.8, 0.6, 1.15);
+  c *= diffuse;
+  c = c / (1.0 + c) * 1.9;             // soft HDR rolloff
+  vec2 q = vUv;
+  c *= 0.66 + 0.34 * pow(16.0 * q.x * q.y * (1.0 - q.x) * (1.0 - q.y), 0.22);
+  c = pow(max(c, 0.0), vec3(1.0 / 2.2));
+  frag = vec4(c, 1.0);
+}
+`;
+
+/* ============================================================
+   Pass plumbing
+   ============================================================ */
+const tri = new THREE.BufferGeometry();
+tri.setAttribute('position', new THREE.BufferAttribute(
+  new Float32Array([-1, -1, 0, 3, -1, 0, -1, 3, 0]), 3));
+const fsScene = new THREE.Scene();
+const quad = new THREE.Mesh(tri, null);
+quad.frustumCulled = false;
+fsScene.add(quad);
+const dummyCam = new THREE.Camera();
+
+function mat(frag, uniforms) {
+  return new THREE.RawShaderMaterial({
+    glslVersion: THREE.GLSL3, uniforms,
+    vertexShader: vert, fragmentShader: frag,
+    depthTest: false, depthWrite: false,
+  });
+}
+
+const M = {
+  advect: mat(advectFrag, {
+    uVelocity: { value: null }, uSource: { value: null },
+    uTexel: { value: new THREE.Vector2() }, uDt: { value: 0 }, uDissipation: { value: 0 },
+  }),
+  curl: mat(curlFrag, { uVelocity: { value: null }, uTexel: { value: new THREE.Vector2() } }),
+  vorticity: mat(vorticityFrag, {
+    uVelocity: { value: null }, uCurl: { value: null },
+    uTexel: { value: new THREE.Vector2() }, uStrength: { value: 26 }, uDt: { value: 0 },
+  }),
+  divergence: mat(divergenceFrag, { uVelocity: { value: null }, uTexel: { value: new THREE.Vector2() } }),
+  pressure: mat(pressureFrag, {
+    uPressure: { value: null }, uDivergence: { value: null }, uTexel: { value: new THREE.Vector2() },
+  }),
+  gradient: mat(gradientFrag, {
+    uPressure: { value: null }, uVelocity: { value: null }, uTexel: { value: new THREE.Vector2() },
+  }),
+  splat: mat(splatFrag, {
+    uTarget: { value: null }, uPoint: { value: new THREE.Vector2() },
+    uColor: { value: new THREE.Vector3() }, uRadius: { value: 0.002 }, uAspect: { value: 1 },
+  }),
+  clear: mat(clearFrag, { uTexture: { value: null }, uValue: { value: 0.85 } }),
+  display: mat(displayFrag, { uDye: { value: null }, uTexel: { value: new THREE.Vector2() } }),
+};
+
+function pass(material, target) {
+  quad.material = material;
+  renderer.setRenderTarget(target);
+  renderer.render(fsScene, dummyCam);
+}
+
+/* ============================================================
+   Splats & palettes
+   ============================================================ */
+const simTexel = new THREE.Vector2();
+const dyeTexel = new THREE.Vector2();
+function refreshTexels() {
+  simTexel.set(1 / simSize.x, 1 / simSize.y);
+  dyeTexel.set(1 / dyeSize.x, 1 / dyeSize.y);
+}
+refreshTexels();
+
+const PALETTES = [
+  { name: 'Aurora', pick: (t) => {
+      const h = 0.48 + 0.35 * (0.5 + 0.5 * Math.sin(t * 0.13 + Math.random() * 2.6));
+      return new THREE.Color().setHSL(h % 1, 0.95, 0.52);
+    } },
+  { name: 'Ember', pick: () => {
+      const opts = [[0.043, 0.62, 0.64], [0.07, 0.75, 0.55], [0.115, 0.55, 0.68], [0.02, 0.7, 0.45]];
+      const [h, s, l] = opts[(Math.random() * opts.length) | 0];
+      return new THREE.Color().setHSL(h, s, l);
+    } },
+  { name: 'Mono', pick: () => {
+      const v = 0.45 + Math.random() * 0.5;
+      return new THREE.Color(0.93 * v, 0.91 * v, 0.86 * v);
+    } },
+];
+let paletteIdx = 0;
+
+function splat(x, y, dx, dy, color, radiusScale = 1) {
+  const aspect = innerWidth / innerHeight;
+  M.splat.uniforms.uAspect.value = aspect;
+  // velocity impulse
+  M.splat.uniforms.uTarget.value = velocity.read.texture;
+  M.splat.uniforms.uPoint.value.set(x, y);
+  M.splat.uniforms.uColor.value.set(dx, dy, 0);
+  M.splat.uniforms.uRadius.value = 0.0016 * radiusScale;
+  pass(M.splat, velocity.write);
+  velocity.swap();
+  // dye
+  M.splat.uniforms.uTarget.value = dye.read.texture;
+  M.splat.uniforms.uColor.value.set(color.r * 0.32, color.g * 0.32, color.b * 0.32);
+  M.splat.uniforms.uRadius.value = 0.0011 * radiusScale;
+  pass(M.splat, dye.write);
+  dye.swap();
+}
+
+function randomSplat(strength = 1) {
+  const c = PALETTES[paletteIdx].pick(performance.now() * 0.001);
+  const a = Math.random() * Math.PI * 2;
+  splat(
+    0.15 + Math.random() * 0.7,
+    0.15 + Math.random() * 0.7,
+    Math.cos(a) * 900 * strength * (0.4 + Math.random()),
+    Math.sin(a) * 900 * strength * (0.4 + Math.random()),
+    c.multiplyScalar(strength),
+    1 + Math.random() * 2,
+  );
+}
+
+function storm() {
+  const n = 12 + ((Math.random() * 6) | 0);
+  for (let i = 0; i < n; i++) randomSplat(1.4);
+  lastInteraction = performance.now();
+}
+
+function clearInk() {
+  for (const p of [velocity, pressure, dye]) {
+    renderer.setRenderTarget(p.read); renderer.clear();
+    renderer.setRenderTarget(p.write); renderer.clear();
+  }
+  renderer.setRenderTarget(null);
+}
+
+/* ============================================================
+   Pointer input — every pointer is a brush
+   ============================================================ */
+const pointers = new Map();
+let lastInteraction = 0;
+
+container.addEventListener('pointerdown', e => {
+  pointers.set(e.pointerId, {
+    x: e.clientX / innerWidth, y: 1 - e.clientY / innerHeight,
+    color: PALETTES[paletteIdx].pick(performance.now() * 0.001), down: true,
+  });
+  lastInteraction = performance.now();
+});
+container.addEventListener('pointermove', e => {
+  let p = pointers.get(e.pointerId);
+  if (!p) {
+    p = { x: e.clientX / innerWidth, y: 1 - e.clientY / innerHeight,
+          color: PALETTES[paletteIdx].pick(performance.now() * 0.001), down: false };
+    pointers.set(e.pointerId, p);
+    return;
+  }
+  const nx = e.clientX / innerWidth, ny = 1 - e.clientY / innerHeight;
+  const dx = nx - p.x, dy = ny - p.y;
+  if (Math.abs(dx) + Math.abs(dy) > 0) {
+    const force = p.down ? 6000 : 2200;       // press to pour, hover to wisp
+    const dyeAmt = p.down ? 1.0 : 0.35;
+    const c = p.color.clone().multiplyScalar(dyeAmt);
+    splat(nx, ny, dx * force, dy * force, c, p.down ? 1.6 : 0.8);
+    lastInteraction = performance.now();
+  }
+  p.x = nx; p.y = ny;
+  // colors drift along a stroke
+  if (Math.random() < 0.05) p.color = PALETTES[paletteIdx].pick(performance.now() * 0.001);
+});
+const lift = e => {
+  const p = pointers.get(e.pointerId);
+  if (p && p.down) p.down = false;
+  if (e.type === 'pointerleave' || e.type === 'pointercancel') pointers.delete(e.pointerId);
+};
+container.addEventListener('pointerup', lift);
+container.addEventListener('pointerleave', lift);
+container.addEventListener('pointercancel', lift);
+
+addEventListener('keydown', e => {
+  if (e.key === ' ') { e.preventDefault(); storm(); }
+  else if (e.key === 'c' || e.key === 'C') clearInk();
+  else {
+    const n = parseInt(e.key, 10);
+    if (n >= 1 && n <= PALETTES.length) setPalette(n - 1);
+  }
+});
+
+/* ============================================================
+   UI panel
+   ============================================================ */
+const panel = document.getElementById('panel');
+PALETTES.forEach((p, i) => {
+  const b = document.createElement('button');
+  b.textContent = p.name;
+  b.dataset.pal = i;
+  b.addEventListener('click', () => setPalette(i));
+  panel.appendChild(b);
+});
+const sep = document.createElement('div');
+sep.className = 'sep';
+panel.appendChild(sep);
+const stormBtn = document.createElement('button');
+stormBtn.textContent = 'Storm';
+stormBtn.addEventListener('click', storm);
+panel.appendChild(stormBtn);
+const clearBtn = document.createElement('button');
+clearBtn.textContent = 'Clear';
+clearBtn.addEventListener('click', clearInk);
+panel.appendChild(clearBtn);
+
+function setPalette(i) {
+  paletteIdx = i;
+  [...panel.querySelectorAll('[data-pal]')].forEach((b, k) =>
+    b.classList.toggle('active', k === i));
+}
+setPalette(0);
+
+/* ============================================================
+   Frame loop
+   ============================================================ */
+const clock = new THREE.Clock();
+const fpsEl = document.getElementById('fps');
+let frames = 0, fpsAt = performance.now();
+let idleAt = 0;
+
+function step(dt) {
+  // vorticity confinement
+  M.curl.uniforms.uVelocity.value = velocity.read.texture;
+  M.curl.uniforms.uTexel.value.copy(simTexel);
+  pass(M.curl, curlRT);
+
+  M.vorticity.uniforms.uVelocity.value = velocity.read.texture;
+  M.vorticity.uniforms.uCurl.value = curlRT.texture;
+  M.vorticity.uniforms.uTexel.value.copy(simTexel);
+  M.vorticity.uniforms.uDt.value = dt;
+  pass(M.vorticity, velocity.write);
+  velocity.swap();
+
+  // project to divergence-free
+  M.divergence.uniforms.uVelocity.value = velocity.read.texture;
+  M.divergence.uniforms.uTexel.value.copy(simTexel);
+  pass(M.divergence, divergence);
+
+  M.clear.uniforms.uTexture.value = pressure.read.texture;
+  pass(M.clear, pressure.write);
+  pressure.swap();
+
+  M.pressure.uniforms.uDivergence.value = divergence.texture;
+  M.pressure.uniforms.uTexel.value.copy(simTexel);
+  for (let i = 0; i < PRESSURE_ITERS; i++) {
+    M.pressure.uniforms.uPressure.value = pressure.read.texture;
+    pass(M.pressure, pressure.write);
+    pressure.swap();
+  }
+
+  M.gradient.uniforms.uPressure.value = pressure.read.texture;
+  M.gradient.uniforms.uVelocity.value = velocity.read.texture;
+  M.gradient.uniforms.uTexel.value.copy(simTexel);
+  pass(M.gradient, velocity.write);
+  velocity.swap();
+
+  // advect velocity then dye
+  M.advect.uniforms.uTexel.value.copy(simTexel);
+  M.advect.uniforms.uDt.value = dt;
+  M.advect.uniforms.uVelocity.value = velocity.read.texture;
+  M.advect.uniforms.uSource.value = velocity.read.texture;
+  M.advect.uniforms.uDissipation.value = 0.18;
+  pass(M.advect, velocity.write);
+  velocity.swap();
+
+  M.advect.uniforms.uVelocity.value = velocity.read.texture;
+  M.advect.uniforms.uSource.value = dye.read.texture;
+  M.advect.uniforms.uDissipation.value = 0.7;
+  pass(M.advect, dye.write);
+  dye.swap();
+}
+
+let bootUntil = 0;
+
+function tick() {
+  requestAnimationFrame(tick);
+  const dt = Math.min(clock.getDelta(), 1 / 30);
+  const now = performance.now();
+
+  // opening: a few plumes drift in over the first seconds
+  if (now < bootUntil && Math.random() < 0.045) randomSplat(0.85);
+
+  // ambient life while idle
+  if (now - lastInteraction > 4000 && now - idleAt > 1700) {
+    randomSplat(0.6);
+    idleAt = now;
+  }
+
+  step(dt);
+
+  M.display.uniforms.uDye.value = dye.read.texture;
+  M.display.uniforms.uTexel.value.copy(dyeTexel);
+  pass(M.display, null);
+
+  frames++;
+  if (now - fpsAt > 600) {
+    fpsEl.textContent = Math.round(frames * 1000 / (now - fpsAt));
+    frames = 0; fpsAt = now;
+  }
+}
+
+addEventListener('resize', () => {
+  renderer.setSize(innerWidth, innerHeight);
+  simSize = gridSize(SIM_BASE);
+  dyeSize = gridSize(DYE_BASE);
+  for (const p of [velocity, pressure, dye]) { p.read.dispose(); p.write.dispose(); }
+  divergence.dispose(); curlRT.dispose();
+  velocity = makePair(simSize, THREE.LinearFilter);
+  pressure = makePair(simSize, THREE.NearestFilter);
+  divergence = makeRT(simSize, THREE.NearestFilter);
+  curlRT = makeRT(simSize, THREE.NearestFilter);
+  dye = makePair(dyeSize, THREE.LinearFilter);
+  refreshTexels();
+  document.getElementById('grids').textContent =
+    `${simSize.x}×${simSize.y} VEL · ${dyeSize.x}×${dyeSize.y} DYE`;
+});
+
+// the ink wakes up
+bootUntil = performance.now() + 3200;
+tick();
+requestAnimationFrame(() => requestAnimationFrame(() => veil.classList.add('gone')));
+</script>
+</body>
+</html>
