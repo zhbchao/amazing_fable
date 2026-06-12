@@ -3,81 +3,115 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Capability Graph — Fable 5 Showcase</title>
+<title>Capability Graph — live force layout · Fable 5</title>
+<meta name="theme-color" content="#07070c">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..700;1,9..144,300..700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
-  :root { --bg: #080a13; --text: #e8edf7; --muted: #8b96ad; --border: rgba(140,160,200,0.18); }
+  :root {
+    --ink: #ece9e2;
+    --muted: #8a8fa3;
+    --amber: #e3b264;
+    --line: rgba(236, 233, 226, 0.14);
+  }
   * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; }
   body {
-    background: var(--bg);
-    color: var(--text);
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    height: 100vh;
-    display: flex;
-    flex-direction: column;
+    background: #07070c;
+    color: var(--ink);
+    font-family: Inter, -apple-system, sans-serif;
     overflow: hidden;
   }
-  header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0.9rem 1.4rem;
-    z-index: 2;
-  }
-  header a { color: var(--muted); text-decoration: none; font-size: 0.9rem; }
-  header a:hover { color: var(--text); }
-  header .title { font-weight: 700; }
-  header .title em {
-    font-style: normal;
-    background: linear-gradient(90deg, #60a5fa, #7c6cff);
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
-  }
-  #stage { flex: 1; position: relative; }
+  #stage { position: fixed; inset: 0; }
   canvas { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; }
-  .hint {
-    position: absolute;
-    top: 0.8rem;
-    left: 1.2rem;
+
+  .ui { position: fixed; z-index: 5; }
+  #masthead { top: 1.4rem; left: 1.6rem; pointer-events: none; }
+  #masthead .back {
+    pointer-events: auto;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
     color: var(--muted);
-    font-size: 0.8rem;
-    line-height: 1.7;
-    pointer-events: none;
-    z-index: 2;
+    text-decoration: none;
+    transition: color 0.2s;
   }
-  .legend {
-    position: absolute;
-    bottom: 1.2rem;
-    left: 50%;
+  #masthead .back:hover { color: var(--ink); }
+  #masthead h1 {
+    margin-top: 0.7rem;
+    font-family: Fraunces, serif;
+    font-style: italic;
+    font-weight: 380;
+    font-size: clamp(1.5rem, 3vw, 2.1rem);
+    line-height: 1;
+  }
+  #masthead .sub {
+    margin-top: 0.55rem;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.66rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  #masthead .sub b { color: var(--amber); font-weight: 500; }
+
+  #hint {
+    bottom: 1.9rem; right: 1.6rem;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.62rem;
+    letter-spacing: 0.14em;
+    color: var(--muted);
+    text-align: right;
+    line-height: 2;
+    opacity: 0.85;
+    pointer-events: none;
+  }
+
+  #legend {
+    bottom: 1.6rem; left: 50%;
     transform: translateX(-50%);
     display: flex;
-    gap: 1rem;
-    flex-wrap: wrap;
-    justify-content: center;
-    background: rgba(10,16,28,0.82);
-    border: 1px solid var(--border);
-    border-radius: 14px;
-    padding: 0.6rem 1.1rem;
-    backdrop-filter: blur(8px);
-    font-size: 0.8rem;
+    align-items: center;
+    gap: 1.1rem;
+    padding: 0.6rem 1.2rem;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: rgba(9, 9, 14, 0.55);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.62rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
     color: var(--muted);
-    z-index: 2;
   }
-  .legend span { display: inline-flex; align-items: center; gap: 0.4rem; }
-  .legend i { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+  #legend span { display: inline-flex; align-items: center; gap: 0.45rem; white-space: nowrap; }
+  #legend i { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+
+  @media (max-width: 760px) {
+    #hint { display: none; }
+    #legend { max-width: 94vw; overflow-x: auto; scrollbar-width: none; }
+    #legend::-webkit-scrollbar { display: none; }
+  }
 </style>
 </head>
 <body>
-<header>
-  <a href="../">← Fable 5 Showcase</a>
-  <span class="title">CAPABILITY <em>GRAPH</em></span>
-  <span style="width:110px"></span>
-</header>
-<div id="stage">
-  <canvas id="c"></canvas>
-  <div class="hint">drag nodes to rearrange · hover to trace connections<br>springs + charge repulsion simulated every frame</div>
-  <div class="legend" id="legend"></div>
+<div id="stage"><canvas id="c"></canvas></div>
+
+<div class="ui" id="masthead">
+  <a class="back" href="../">← Index</a>
+  <h1>Capability Graph</h1>
+  <div class="sub">springs · repulsion · <b>every</b> frame</div>
 </div>
+
+<div class="ui" id="hint">
+  drag nodes to rearrange<br>
+  hover to trace connections
+</div>
+
+<div class="ui" id="legend"></div>
 
 <script>
 'use strict';
@@ -91,7 +125,7 @@ const ctx = canvas.getContext('2d');
 let W = 0, H = 0, DPR = 1;
 
 const GROUPS = {
-  hub:       { color: '#7c6cff', label: null },
+  hub:       { color: '#e3b264', label: null },
   coding:    { color: '#2dd4bf', label: 'Coding' },
   reasoning: { color: '#60a5fa', label: 'Reasoning' },
   creative:  { color: '#f472b6', label: 'Creative' },
@@ -201,7 +235,7 @@ function neighbors(n) {
 }
 
 function draw() {
-  ctx.fillStyle = '#080a13';
+  ctx.fillStyle = '#07070c';
   ctx.fillRect(0, 0, W, H);
   const hl = hoverNode ? neighbors(hoverNode) : null;
 
@@ -211,7 +245,7 @@ function draw() {
     const lit = hl && hl.has(a) && hl.has(b) && (a === hoverNode || b === hoverNode);
     ctx.strokeStyle = lit
       ? GROUPS[(a.kind === 'leaf' ? a : b).group].color
-      : 'rgba(140,160,200,0.16)';
+      : 'rgba(236,233,226,0.13)';
     ctx.lineWidth = lit ? 1.8 : 1;
     ctx.globalAlpha = hl && !lit ? 0.35 : 1;
     ctx.beginPath();
@@ -234,7 +268,7 @@ function draw() {
     ctx.fill();
     ctx.shadowBlur = 0;
     if (n.kind !== 'leaf') {
-      ctx.fillStyle = 'rgba(8,10,19,0.85)';
+      ctx.fillStyle = 'rgba(7,7,12,0.85)';
       ctx.beginPath();
       ctx.arc(n.x, n.y, n.r - 3, 0, Math.PI * 2);
       ctx.fill();
@@ -247,20 +281,20 @@ function draw() {
   for (const n of nodes) {
     const dim = hl && !hl.has(n);
     if (n.kind === 'hub') {
-      ctx.fillStyle = '#fff';
-      ctx.font = '700 13px -apple-system, sans-serif';
+      ctx.fillStyle = '#ece9e2';
+      ctx.font = 'italic 500 14px Fraunces, serif';
       ctx.fillText('Claude', n.x, n.y - 3);
-      ctx.fillText('Fable 5', n.x, n.y + 11);
+      ctx.fillText('Fable 5', n.x, n.y + 12);
     } else if (n.kind === 'cat') {
       ctx.globalAlpha = dim ? 0.3 : 1;
       ctx.fillStyle = GROUPS[n.group].color;
-      ctx.font = '700 12px -apple-system, sans-serif';
-      ctx.fillText(n.name, n.x, n.y - n.r - 7);
+      ctx.font = '500 11px "JetBrains Mono", monospace';
+      ctx.fillText(n.name.toUpperCase(), n.x, n.y - n.r - 8);
     } else {
       const lit = hl && hl.has(n);
       ctx.globalAlpha = hl ? (lit ? 1 : 0.15) : 0.65;
-      ctx.fillStyle = lit ? '#fff' : '#aeb8cc';
-      ctx.font = `${lit ? '600 ' : ''}11px -apple-system, sans-serif`;
+      ctx.fillStyle = lit ? '#ece9e2' : '#a8a8b2';
+      ctx.font = `${lit ? '600 ' : ''}11px Inter, sans-serif`;
       ctx.fillText(n.name, n.x, n.y - n.r - 5);
     }
     ctx.globalAlpha = 1;

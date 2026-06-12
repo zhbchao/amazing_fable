@@ -3,145 +3,194 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Endless Symphony — Fable 5 Showcase</title>
+<title>Endless Symphony — improvised live · Fable 5</title>
+<meta name="theme-color" content="#07070c">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..700;1,9..144,300..700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
-  :root { --bg: #070810; --text: #e8edf7; --muted: #8b96ad; --border: rgba(140,160,200,0.18); }
+  :root {
+    --ink: #ece9e2;
+    --muted: #8a8fa3;
+    --amber: #e3b264;
+    --line: rgba(236, 233, 226, 0.14);
+  }
   * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; }
   body {
-    background: var(--bg);
-    color: var(--text);
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    height: 100vh;
-    display: flex;
-    flex-direction: column;
+    background: #07070c;
+    color: var(--ink);
+    font-family: Inter, -apple-system, sans-serif;
     overflow: hidden;
   }
-  header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0.9rem 1.4rem;
-    z-index: 2;
-  }
-  header a { color: var(--muted); text-decoration: none; font-size: 0.9rem; }
-  header a:hover { color: var(--text); }
-  header .title { font-weight: 700; }
-  header .title em {
-    font-style: normal;
-    background: linear-gradient(90deg, #4ade80, #60a5fa);
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
-  }
-  #stage { flex: 1; position: relative; }
+  #stage { position: fixed; inset: 0; }
   canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+
+  .ui { position: fixed; z-index: 5; }
+  #masthead { top: 1.4rem; left: 1.6rem; pointer-events: none; }
+  #masthead .back {
+    pointer-events: auto;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--muted);
+    text-decoration: none;
+    transition: color 0.2s;
+  }
+  #masthead .back:hover { color: var(--ink); }
+  #masthead h1 {
+    margin-top: 0.7rem;
+    font-family: Fraunces, serif;
+    font-style: italic;
+    font-weight: 380;
+    font-size: clamp(1.5rem, 3vw, 2.1rem);
+    line-height: 1;
+  }
+  #masthead .sub {
+    margin-top: 0.55rem;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.66rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  #masthead .sub b { color: var(--amber); font-weight: 500; }
+  #now {
+    margin-top: 1rem;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.66rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--muted);
+    line-height: 1.9;
+  }
+  #now b { color: var(--ink); font-weight: 500; }
+
+  #stats {
+    top: 1.5rem; right: 1.6rem;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.62rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--muted);
+    text-align: right;
+    line-height: 2;
+    pointer-events: none;
+  }
+
   #bigplay {
-    position: absolute;
+    position: fixed;
     inset: 0;
+    z-index: 8;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 1.2rem;
-    background: rgba(7,8,16,0.55);
-    backdrop-filter: blur(3px);
-    z-index: 3;
+    gap: 1.6rem;
+    background: rgba(7, 7, 12, 0.6);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
     cursor: pointer;
     border: none;
-    color: var(--text);
+    color: var(--ink);
     font-family: inherit;
   }
   #bigplay .disc {
-    width: 110px; height: 110px;
+    width: 96px; height: 96px;
     border-radius: 50%;
-    background: linear-gradient(135deg, #4ade80, #60a5fa);
+    border: 1px solid var(--amber);
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 2.6rem;
-    color: #06121f;
-    box-shadow: 0 0 60px rgba(96,165,250,0.45);
-    transition: transform 0.2s;
+    font-size: 1.7rem;
+    color: var(--amber);
+    transition: transform 0.25s, background 0.25s, color 0.25s;
   }
-  #bigplay:hover .disc { transform: scale(1.07); }
-  #bigplay p { color: var(--muted); font-size: 0.95rem; max-width: 420px; text-align: center; }
-  .panel {
-    position: absolute;
-    bottom: 1.2rem;
-    left: 50%;
+  #bigplay:hover .disc { transform: scale(1.08); background: var(--amber); color: #0a0a0d; }
+  #bigplay .word {
+    font-family: Fraunces, serif;
+    font-style: italic;
+    font-weight: 350;
+    font-size: 1.6rem;
+  }
+  #bigplay p {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.66rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--muted);
+    max-width: 480px;
+    text-align: center;
+    line-height: 2;
+  }
+
+  #panel {
+    bottom: 1.6rem; left: 50%;
     transform: translateX(-50%);
     display: flex;
-    gap: 0.5rem;
-    flex-wrap: wrap;
-    justify-content: center;
-    background: rgba(10,16,28,0.85);
-    border: 1px solid var(--border);
-    border-radius: 14px;
-    padding: 0.6rem 0.8rem;
-    backdrop-filter: blur(8px);
-    z-index: 2;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.35rem;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: rgba(9, 9, 14, 0.55);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
   }
-  .panel button {
-    background: rgba(255,255,255,0.05);
-    color: var(--text);
-    border: 1px solid var(--border);
-    border-radius: 9px;
-    padding: 0.45rem 0.95rem;
-    font-size: 0.86rem;
-    font-weight: 600;
+  #panel button {
+    appearance: none;
+    border: 0;
+    background: transparent;
+    color: var(--muted);
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.66rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    padding: 0.5rem 0.95rem;
+    border-radius: 999px;
     cursor: pointer;
-    font-family: inherit;
-    transition: background 0.15s, border-color 0.15s;
+    transition: color 0.25s, background 0.25s;
+    white-space: nowrap;
   }
-  .panel button:hover { background: rgba(255,255,255,0.1); }
-  .panel button.active { background: rgba(96,165,250,0.25); border-color: #60a5fa; }
-  .nowplaying {
-    position: absolute;
-    top: 0.8rem;
-    left: 1.2rem;
-    color: var(--muted);
-    font-size: 0.8rem;
-    line-height: 1.8;
-    z-index: 2;
-    pointer-events: none;
-  }
-  .nowplaying b { color: var(--text); font-size: 1rem; }
-  .stats {
-    position: absolute;
-    top: 0.8rem;
-    right: 1.2rem;
-    color: var(--muted);
-    font-size: 0.76rem;
-    text-align: right;
-    line-height: 1.7;
-    z-index: 2;
-    pointer-events: none;
+  #panel button:hover { color: var(--ink); }
+  #panel button.active { color: #0a0a0d; background: var(--amber); }
+  #panel .sep { width: 1px; height: 1.1rem; background: var(--line); margin: 0 0.3rem; }
+
+  @media (max-width: 760px) {
+    #stats { display: none; }
+    #panel { max-width: 94vw; overflow-x: auto; scrollbar-width: none; }
+    #panel::-webkit-scrollbar { display: none; }
   }
 </style>
 </head>
 <body>
-<header>
-  <a href="../">← Fable 5 Showcase</a>
-  <span class="title">ENDLESS <em>SYMPHONY</em></span>
-  <span style="width:110px"></span>
-</header>
-<div id="stage">
-  <canvas id="c"></canvas>
-  <div class="nowplaying" id="now"></div>
-  <div class="stats" id="stats"></div>
-  <button id="bigplay">
-    <span class="disc">▶</span>
-    <p>An infinite, never-repeating composition — chords, bass, melody and percussion
-    are all synthesized and arranged live by code. Press play.</p>
-  </button>
-  <div class="panel" id="panel" style="display:none">
-    <button id="toggle">⏸ Pause</button>
-    <button data-mood="0" class="active">🌅 Dawn</button>
-    <button data-mood="1">🌊 Drift</button>
-    <button data-mood="2">⚡ Pulse</button>
-    <button data-mood="3">🍃 Zen</button>
-    <button id="reseed">✦ New tune</button>
-  </div>
+<div id="stage"><canvas id="c"></canvas></div>
+
+<div class="ui" id="masthead">
+  <a class="back" href="../">← Index</a>
+  <h1>Endless Symphony</h1>
+  <div class="sub">no samples · no loops · <b>never</b> repeats</div>
+  <div id="now"></div>
+</div>
+
+<div class="ui" id="stats"></div>
+
+<button id="bigplay">
+  <span class="disc">▶</span>
+  <span class="word">Press play</span>
+  <p>an infinite composition — chords, bass, melody and percussion<br>synthesized and arranged live by code</p>
+</button>
+
+<div class="ui" id="panel" style="display:none">
+  <button id="toggle">Pause</button>
+  <div class="sep"></div>
+  <button data-mood="0" class="active">Dawn</button>
+  <button data-mood="1">Drift</button>
+  <button data-mood="2">Pulse</button>
+  <button data-mood="3">Zen</button>
+  <div class="sep"></div>
+  <button id="reseed">New tune</button>
 </div>
 
 <script>
@@ -425,7 +474,7 @@ let kickPulse = 0, chordName = '—';
 const freqData = new Uint8Array(256);
 
 function draw() {
-  ctx.fillStyle = 'rgba(7,8,16,0.26)';     // motion-blur fade
+  ctx.fillStyle = 'rgba(7,7,12,0.26)';     // motion-blur fade
   ctx.fillRect(0, 0, W, H);
   const cx = W / 2, cy = H / 2;
   const hue = mood().hue;
@@ -509,20 +558,20 @@ document.getElementById('bigplay').addEventListener('click', () => {
   syncNow();
 });
 document.getElementById('toggle').addEventListener('click', e => {
-  if (playing) { stop(); e.target.textContent = '▶ Play'; }
-  else { start(); e.target.textContent = '⏸ Pause'; }
+  if (playing) { stop(); e.target.textContent = 'Play'; }
+  else { start(); e.target.textContent = 'Pause'; }
 });
 document.querySelectorAll('[data-mood]').forEach(btn => btn.addEventListener('click', () => {
   moodIdx = +btn.dataset.mood;
   document.querySelectorAll('[data-mood]').forEach(b => b.classList.toggle('active', b === btn));
   rand = mulberry32(seed);
-  if (playing) { stop(); start(); document.getElementById('toggle').textContent = '⏸ Pause'; }
+  if (playing) { stop(); start(); document.getElementById('toggle').textContent = 'Pause'; }
   syncNow();
 }));
 document.getElementById('reseed').addEventListener('click', () => {
   seed = Math.floor(Math.random() * 1e6);
   rand = mulberry32(seed);
-  if (playing) { stop(); start(); document.getElementById('toggle').textContent = '⏸ Pause'; }
+  if (playing) { stop(); start(); document.getElementById('toggle').textContent = 'Pause'; }
   syncNow();
 });
 

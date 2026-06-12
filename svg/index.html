@@ -3,96 +3,149 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Infinite Landscapes — Fable 5 Showcase</title>
+<title>Infinite Landscapes — seeded SVG scenes · Fable 5</title>
+<meta name="theme-color" content="#07070c">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..700;1,9..144,300..700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
-  :root { --bg: #0b0f1c; --text: #e8edf7; --muted: #8b96ad; --border: rgba(140,160,200,0.18); }
+  :root {
+    --ink: #ece9e2;
+    --muted: #8a8fa3;
+    --amber: #e3b264;
+    --line: rgba(236, 233, 226, 0.14);
+  }
   * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; }
   body {
-    background: var(--bg);
-    color: var(--text);
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-  }
-  header {
-    width: 100%;
-    max-width: 1000px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0.9rem 1.2rem;
-  }
-  header a { color: var(--muted); text-decoration: none; font-size: 0.9rem; }
-  header a:hover { color: var(--text); }
-  header .title { font-weight: 700; }
-  header .title em {
-    font-style: normal;
-    background: linear-gradient(90deg, #a78bfa, #f472b6);
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
-  }
-  #frame {
-    width: min(94vw, 960px);
-    border-radius: 16px;
+    background: #07070c;
+    color: var(--ink);
+    font-family: Inter, -apple-system, sans-serif;
     overflow: hidden;
-    border: 1px solid var(--border);
-    box-shadow: 0 18px 60px rgba(0,0,0,0.55);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .ui { position: fixed; z-index: 5; }
+  #masthead { top: 1.4rem; left: 1.6rem; pointer-events: none; }
+  #masthead .back {
+    pointer-events: auto;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--muted);
+    text-decoration: none;
+    transition: color 0.2s;
+  }
+  #masthead .back:hover { color: var(--ink); }
+  #masthead h1 {
+    margin-top: 0.7rem;
+    font-family: Fraunces, serif;
+    font-style: italic;
+    font-weight: 380;
+    font-size: clamp(1.5rem, 3vw, 2.1rem);
+    line-height: 1;
+  }
+  #masthead .sub {
+    margin-top: 0.55rem;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.66rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  #masthead .sub b { color: var(--amber); font-weight: 500; }
+
+  #hint {
+    bottom: 1.9rem; right: 1.6rem;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.62rem;
+    letter-spacing: 0.14em;
+    color: var(--muted);
+    text-align: right;
+    line-height: 2;
+    opacity: 0.85;
+    pointer-events: none;
+  }
+
+  #frame {
+    width: min(92vw, calc((100vh - 210px) * 16 / 9), 1060px);
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid var(--line);
+    box-shadow: 0 24px 70px rgba(0, 0, 0, 0.6);
     line-height: 0;
     cursor: pointer;
   }
   #frame svg { width: 100%; height: auto; }
-  .controls {
+
+  #panel {
+    position: fixed;
+    bottom: 1.6rem; left: 50%;
+    transform: translateX(-50%);
+    z-index: 5;
     display: flex;
-    gap: 0.5rem;
-    flex-wrap: wrap;
-    justify-content: center;
-    margin: 1.1rem 0 0.4rem;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.35rem;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: rgba(9, 9, 14, 0.55);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
   }
-  button {
-    background: rgba(255,255,255,0.05);
-    color: var(--text);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 0.55rem 1.1rem;
-    font-size: 0.88rem;
-    font-weight: 600;
+  #panel button {
+    appearance: none;
+    border: 0;
+    background: transparent;
+    color: var(--muted);
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.66rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    padding: 0.5rem 0.95rem;
+    border-radius: 999px;
     cursor: pointer;
-    font-family: inherit;
-    transition: background 0.15s, border-color 0.15s;
+    transition: color 0.25s, background 0.25s;
+    white-space: nowrap;
   }
-  button:hover { background: rgba(255,255,255,0.1); }
-  button.active { background: rgba(167,139,250,0.28); border-color: #a78bfa; }
-  button.primary {
-    background: linear-gradient(100deg, #7c6cff, #a78bfa);
-    border: none;
+  #panel button:hover { color: var(--ink); }
+  #panel button.active { color: #0a0a0d; background: var(--amber); }
+  #panel .sep { width: 1px; height: 1.1rem; background: var(--line); margin: 0 0.3rem; }
+
+  @media (max-width: 760px) {
+    #hint { display: none; }
+    #panel { max-width: 94vw; overflow-x: auto; scrollbar-width: none; }
+    #panel::-webkit-scrollbar { display: none; }
   }
-  button.primary:hover { filter: brightness(1.15); }
-  .meta { color: var(--muted); font-size: 0.8rem; margin: 0.6rem 0 1.4rem; text-align: center; }
-  .meta code { color: #a78bfa; }
 </style>
 </head>
 <body>
-<header>
-  <a href="../">← Fable 5 Showcase</a>
-  <span class="title">INFINITE <em>LANDSCAPES</em></span>
-  <span style="width:110px"></span>
-</header>
+<div class="ui" id="masthead">
+  <a class="back" href="../">← Index</a>
+  <h1>Infinite Landscapes</h1>
+  <div class="sub">hand-assembled svg · seed <b id="seed">…</b></div>
+</div>
+
+<div class="ui" id="hint">
+  click the scene for another<br>
+  the download is the exact markup on screen
+</div>
 
 <div id="frame" title="Click for a new scene"></div>
-<div class="controls">
-  <button class="primary" id="regen">✦ New scene</button>
+
+<div id="panel">
+  <button id="regen">New scene</button>
+  <div class="sep"></div>
   <button data-time="auto" class="active">Auto</button>
   <button data-time="dawn">Dawn</button>
   <button data-time="day">Day</button>
   <button data-time="dusk">Dusk</button>
   <button data-time="night">Night</button>
-  <button id="download">⬇ Download SVG</button>
+  <div class="sep"></div>
+  <button id="download">Download</button>
 </div>
-<p class="meta">Every scene is a brand-new hand-assembled SVG document — gradients, ridgelines, weather,
-  wildlife and SMIL animation — built from seed <code id="seed">…</code>. The download is the exact markup you see.</p>
 
 <script>
 'use strict';

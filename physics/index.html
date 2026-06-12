@@ -3,95 +3,131 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Tearable Cloth — Fable 5 Showcase</title>
+<title>Tearable Cloth — verlet fibers · Fable 5</title>
+<meta name="theme-color" content="#07070c">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..700;1,9..144,300..700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
-  :root { --bg: #070b15; --text: #e8edf7; --muted: #8b96ad; --border: rgba(140,160,200,0.18); }
+  :root {
+    --ink: #ece9e2;
+    --muted: #8a8fa3;
+    --amber: #e3b264;
+    --line: rgba(236, 233, 226, 0.14);
+  }
   * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; }
   body {
-    background: var(--bg);
-    color: var(--text);
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    height: 100vh;
-    display: flex;
-    flex-direction: column;
+    background: #07070c;
+    color: var(--ink);
+    font-family: Inter, -apple-system, sans-serif;
     overflow: hidden;
   }
-  header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0.9rem 1.4rem;
-    z-index: 2;
-  }
-  header a { color: var(--muted); text-decoration: none; font-size: 0.9rem; }
-  header a:hover { color: var(--text); }
-  header .title { font-weight: 700; }
-  header .title em {
-    font-style: normal;
-    background: linear-gradient(90deg, #5e8bff, #2dd4bf);
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
-  }
-  #stage { flex: 1; position: relative; }
+  #stage { position: fixed; inset: 0; }
   canvas { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; }
-  .panel {
-    position: absolute;
-    bottom: 1.2rem;
-    left: 50%;
+
+  .ui { position: fixed; z-index: 5; }
+  #masthead { top: 1.4rem; left: 1.6rem; pointer-events: none; }
+  #masthead .back {
+    pointer-events: auto;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--muted);
+    text-decoration: none;
+    transition: color 0.2s;
+  }
+  #masthead .back:hover { color: var(--ink); }
+  #masthead h1 {
+    margin-top: 0.7rem;
+    font-family: Fraunces, serif;
+    font-style: italic;
+    font-weight: 380;
+    font-size: clamp(1.5rem, 3vw, 2.1rem);
+    line-height: 1;
+  }
+  #masthead .sub {
+    margin-top: 0.55rem;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.66rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  #masthead .sub b { color: var(--amber); font-weight: 500; }
+
+  #hint {
+    bottom: 1.9rem; right: 1.6rem;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.62rem;
+    letter-spacing: 0.14em;
+    color: var(--muted);
+    text-align: right;
+    line-height: 2;
+    opacity: 0.85;
+    pointer-events: none;
+  }
+
+  #panel {
+    bottom: 1.6rem; left: 50%;
     transform: translateX(-50%);
     display: flex;
-    gap: 0.5rem;
-    flex-wrap: wrap;
-    justify-content: center;
-    background: rgba(10,16,28,0.82);
-    border: 1px solid var(--border);
-    border-radius: 14px;
-    padding: 0.6rem 0.8rem;
-    backdrop-filter: blur(8px);
-    z-index: 2;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.35rem;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: rgba(9, 9, 14, 0.55);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
   }
-  .panel button {
-    background: rgba(255,255,255,0.05);
-    color: var(--text);
-    border: 1px solid var(--border);
-    border-radius: 9px;
-    padding: 0.45rem 0.95rem;
-    font-size: 0.86rem;
-    font-weight: 600;
-    cursor: pointer;
-    font-family: inherit;
-    transition: background 0.15s, border-color 0.15s;
-  }
-  .panel button:hover { background: rgba(255,255,255,0.1); }
-  .panel button.active { background: rgba(94,139,255,0.3); border-color: #5e8bff; }
-  .hint {
-    position: absolute;
-    top: 0.8rem;
-    left: 1.2rem;
+  #panel button {
+    appearance: none;
+    border: 0;
+    background: transparent;
     color: var(--muted);
-    font-size: 0.8rem;
-    line-height: 1.7;
-    z-index: 2;
-    pointer-events: none;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.66rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    padding: 0.5rem 0.95rem;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: color 0.25s, background 0.25s;
+    white-space: nowrap;
+  }
+  #panel button:hover { color: var(--ink); }
+  #panel button.active { color: #0a0a0d; background: var(--amber); }
+  #panel .sep { width: 1px; height: 1.1rem; background: var(--line); margin: 0 0.3rem; }
+
+  @media (max-width: 760px) {
+    #hint { display: none; }
+    #panel { max-width: 94vw; overflow-x: auto; scrollbar-width: none; }
+    #panel::-webkit-scrollbar { display: none; }
   }
 </style>
 </head>
 <body>
-<header>
-  <a href="../">← Fable 5 Showcase</a>
-  <span class="title">TEARABLE <em>CLOTH</em></span>
-  <span style="width:110px"></span>
-</header>
-<div id="stage">
-  <canvas id="c"></canvas>
-  <div class="hint">drag to pull the cloth · right-drag (or ✂ mode) to cut<br>fibers glow red under stress and snap when overstretched</div>
-  <div class="panel">
-    <button id="mode">✂ Cut mode: off</button>
-    <button id="wind">💨 Wind: off</button>
-    <button id="gravity" class="active">⬇ Gravity: on</button>
-    <button id="reset">↺ Reset cloth</button>
-  </div>
+<div id="stage"><canvas id="c"></canvas></div>
+
+<div class="ui" id="masthead">
+  <a class="back" href="../">← Index</a>
+  <h1>Tearable Cloth</h1>
+  <div class="sub">verlet fibers · <b>snap</b> under stress</div>
+</div>
+
+<div class="ui" id="hint">
+  drag to pull · right-drag or cut mode to slice<br>
+  fibers glow ember as they near breaking
+</div>
+
+<div class="ui" id="panel">
+  <button id="mode">Cut: off</button>
+  <button id="wind">Wind: off</button>
+  <button id="gravity" class="active">Gravity: on</button>
+  <div class="sep"></div>
+  <button id="reset">Reset</button>
 </div>
 
 <script>
@@ -194,7 +230,7 @@ function step() {
 
 // ---------------- render ----------------
 function draw() {
-  ctx.fillStyle = '#070b15';
+  ctx.fillStyle = '#07070c';
   ctx.fillRect(0, 0, W, H);
 
   ctx.lineWidth = 1.1;
@@ -202,11 +238,11 @@ function draw() {
     const p1 = points[cn.a], p2 = points[cn.b];
     const dist = Math.hypot(p2.x - p1.x, p2.y - p1.y);
     const strain = Math.max(0, Math.min(1, (dist / cn.rest - 1) / (TEAR_AT - 1.4)));
-    // calm blue → hot red as the fiber approaches its breaking point
-    const r = Math.round(94 + strain * 160);
-    const g = Math.round(139 - strain * 90);
-    const b = Math.round(255 - strain * 150);
-    ctx.strokeStyle = `rgba(${r},${g},${b},${0.55 + strain * 0.45})`;
+    // calm slate → ember as the fiber approaches its breaking point
+    const r = Math.round(122 + strain * 133);
+    const g = Math.round(132 - strain * 40);
+    const b = Math.round(158 - strain * 95);
+    ctx.strokeStyle = `rgba(${r},${g},${b},${0.5 + strain * 0.5})`;
     ctx.beginPath();
     ctx.moveTo(p1.x, p1.y);
     ctx.lineTo(p2.x, p2.y);
@@ -214,7 +250,7 @@ function draw() {
   }
 
   // pins
-  ctx.fillStyle = '#2dd4bf';
+  ctx.fillStyle = '#e3b264';
   for (const p of points) {
     if (!p.pinned) continue;
     ctx.beginPath();
@@ -226,7 +262,7 @@ function draw() {
   if (mouse.inside) {
     ctx.beginPath();
     ctx.arc(mouse.x, mouse.y, cutMode ? 14 : 22, 0, Math.PI * 2);
-    ctx.strokeStyle = cutMode ? 'rgba(244,63,94,0.7)' : 'rgba(232,237,247,0.3)';
+    ctx.strokeStyle = cutMode ? 'rgba(227,178,100,0.8)' : 'rgba(236,233,226,0.3)';
     ctx.lineWidth = 1;
     ctx.stroke();
   }
@@ -275,19 +311,19 @@ canvas.addEventListener('touchend', () => { mouse.down = false; mouse.grab = -1;
 const modeBtn = document.getElementById('mode');
 modeBtn.addEventListener('click', () => {
   cutMode = !cutMode;
-  modeBtn.textContent = `✂ Cut mode: ${cutMode ? 'on' : 'off'}`;
+  modeBtn.textContent = `Cut: ${cutMode ? 'on' : 'off'}`;
   modeBtn.classList.toggle('active', cutMode);
 });
 const windBtn = document.getElementById('wind');
 windBtn.addEventListener('click', () => {
   windOn = !windOn;
-  windBtn.textContent = `💨 Wind: ${windOn ? 'on' : 'off'}`;
+  windBtn.textContent = `Wind: ${windOn ? 'on' : 'off'}`;
   windBtn.classList.toggle('active', windOn);
 });
 const gravBtn = document.getElementById('gravity');
 gravBtn.addEventListener('click', () => {
   gravityOn = !gravityOn;
-  gravBtn.textContent = `⬇ Gravity: ${gravityOn ? 'on' : 'off'}`;
+  gravBtn.textContent = `Gravity: ${gravityOn ? 'on' : 'off'}`;
   gravBtn.classList.toggle('active', gravityOn);
 });
 document.getElementById('reset').addEventListener('click', buildCloth);

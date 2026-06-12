@@ -3,118 +3,173 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Watch It Learn — Fable 5 Showcase</title>
+<title>Watch It Learn — a neural net training live · Fable 5</title>
+<meta name="theme-color" content="#07070c">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..700;1,9..144,300..700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
-  :root { --bg: #080a12; --text: #e8edf7; --muted: #8b96ad; --border: rgba(140,160,200,0.18); }
+  :root {
+    --ink: #ece9e2;
+    --muted: #8a8fa3;
+    --amber: #e3b264;
+    --line: rgba(236, 233, 226, 0.14);
+  }
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
-    background: var(--bg);
-    color: var(--text);
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: #07070c;
+    color: var(--ink);
+    font-family: Inter, -apple-system, sans-serif;
     min-height: 100vh;
     display: flex;
     flex-direction: column;
     align-items: center;
+    justify-content: center;
     overflow-x: hidden;
+    padding: 6.5rem 1rem 2rem;
   }
-  header {
-    width: 100%;
-    max-width: 1000px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0.9rem 1.2rem;
+  .ui { position: fixed; z-index: 5; }
+  #masthead { top: 1.4rem; left: 1.6rem; pointer-events: none; }
+  #masthead .back {
+    pointer-events: auto;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--muted);
+    text-decoration: none;
+    transition: color 0.2s;
   }
-  header a { color: var(--muted); text-decoration: none; font-size: 0.9rem; }
-  header a:hover { color: var(--text); }
-  header .title { font-weight: 700; }
-  header .title em {
-    font-style: normal;
-    background: linear-gradient(90deg, #f472b6, #facc15);
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
+  #masthead .back:hover { color: var(--ink); }
+  #masthead h1 {
+    margin-top: 0.7rem;
+    font-family: Fraunces, serif;
+    font-style: italic;
+    font-weight: 380;
+    font-size: clamp(1.5rem, 3vw, 2.1rem);
+    line-height: 1;
   }
+  #masthead .sub {
+    margin-top: 0.55rem;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.66rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  #masthead .sub b { color: var(--amber); font-weight: 500; }
+
   .boards {
     display: flex;
     gap: 1.4rem;
     flex-wrap: wrap;
     justify-content: center;
-    margin-top: 0.4rem;
   }
   .board { text-align: center; }
   .board .label {
-    font-size: 0.72rem;
-    font-weight: 700;
-    letter-spacing: 0.14em;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.62rem;
+    font-weight: 500;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
     color: var(--muted);
-    margin-bottom: 0.5rem;
+    margin-bottom: 0.6rem;
   }
   .board canvas {
-    width: min(42vw, 310px);
-    height: min(42vw, 310px);
-    border-radius: 12px;
-    border: 1px solid var(--border);
-    box-shadow: 0 14px 40px rgba(0,0,0,0.5);
+    width: min(42vw, 300px);
+    height: min(42vw, 300px);
+    border-radius: 10px;
+    border: 1px solid var(--line);
+    box-shadow: 0 24px 70px rgba(0, 0, 0, 0.6);
     background: #000;
   }
   #target.paint { cursor: crosshair; }
+
   .meterrow {
     display: flex;
     align-items: center;
-    gap: 1.2rem;
-    margin-top: 1rem;
+    gap: 1.4rem;
+    margin-top: 1.3rem;
     flex-wrap: wrap;
     justify-content: center;
   }
   #losschart {
     width: min(88vw, 420px);
     height: 56px;
-    border: 1px solid var(--border);
+    border: 1px solid var(--line);
     border-radius: 10px;
-    background: rgba(10,16,28,0.6);
+    background: rgba(9, 9, 14, 0.55);
   }
-  .stats { color: var(--muted); font-size: 0.8rem; line-height: 1.7; font-variant-numeric: tabular-nums; }
-  .stats b { color: var(--text); }
+  .stats {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.64rem;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    line-height: 2;
+    font-variant-numeric: tabular-nums;
+  }
+  .stats b { color: var(--ink); font-weight: 500; }
+
   .controls {
     display: flex;
-    gap: 0.5rem;
+    align-items: center;
+    gap: 0.25rem;
     flex-wrap: wrap;
     justify-content: center;
-    margin: 1.1rem 0 0.5rem;
-    max-width: 760px;
+    margin-top: 1.4rem;
+    padding: 0.35rem;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: rgba(9, 9, 14, 0.55);
   }
-  button {
-    background: rgba(255,255,255,0.05);
-    color: var(--text);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 0.5rem 1rem;
-    font-size: 0.86rem;
-    font-weight: 600;
+  .controls button {
+    appearance: none;
+    border: 0;
+    background: transparent;
+    color: var(--muted);
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.66rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    padding: 0.5rem 0.95rem;
+    border-radius: 999px;
     cursor: pointer;
-    font-family: inherit;
-    transition: background 0.15s, border-color 0.15s;
+    transition: color 0.25s, background 0.25s;
+    white-space: nowrap;
   }
-  button:hover { background: rgba(255,255,255,0.1); }
-  button.active { background: rgba(244,114,182,0.24); border-color: #f472b6; }
-  .meta { color: var(--muted); font-size: 0.78rem; margin: 0.5rem 1rem 1.4rem; text-align: center; max-width: 640px; }
+  .controls button:hover { color: var(--ink); }
+  .controls button.active { color: #0a0a0d; background: var(--amber); }
+  .controls .sep { width: 1px; height: 1.1rem; background: var(--line); margin: 0 0.3rem; }
+
+  .meta {
+    color: var(--muted);
+    font-size: 0.78rem;
+    margin-top: 1.2rem;
+    text-align: center;
+    max-width: 60ch;
+    line-height: 1.8;
+  }
+  .meta em { color: var(--ink); font-style: italic; font-family: Fraunces, serif; }
+
+  @media (max-width: 760px) {
+    body { padding-top: 7.5rem; justify-content: flex-start; }
+  }
 </style>
 </head>
 <body>
-<header>
-  <a href="../">← Fable 5 Showcase</a>
-  <span class="title">WATCH IT <em>LEARN</em></span>
-  <span style="width:110px"></span>
-</header>
+<div class="ui" id="masthead">
+  <a class="back" href="../">← Index</a>
+  <h1>Watch It Learn</h1>
+  <div class="sub">backprop · adam · <b>live</b> in your tab</div>
+</div>
 
 <div class="boards">
   <div class="board">
-    <div class="label">TARGET</div>
+    <div class="label">Target</div>
     <canvas id="target" width="64" height="64"></canvas>
   </div>
   <div class="board">
-    <div class="label">WHAT THE NETWORK PAINTS</div>
+    <div class="label">What the network paints</div>
     <canvas id="output" width="64" height="64"></canvas>
   </div>
 </div>
@@ -125,18 +180,20 @@
 </div>
 
 <div class="controls">
-  <button data-t="0" class="active">🌅 Sunset</button>
-  <button data-t="1">🙂 Smiley</button>
-  <button data-t="2">✦ F5</button>
-  <button data-t="3">🌀 Spiral</button>
-  <button id="doodle">✏️ Doodle your own</button>
-  <button id="clear" style="display:none">🧹 Clear</button>
-  <button id="turbo">🚀 Turbo</button>
-  <button id="reset">↺ Reset brain</button>
+  <button data-t="0" class="active">Sunset</button>
+  <button data-t="1">Smiley</button>
+  <button data-t="2">F5</button>
+  <button data-t="3">Spiral</button>
+  <div class="sep"></div>
+  <button id="doodle">Doodle</button>
+  <button id="clear" style="display:none">Clear</button>
+  <div class="sep"></div>
+  <button id="turbo">Turbo</button>
+  <button id="reset">Reset brain</button>
 </div>
-<p class="meta">A real multilayer perceptron — forward pass, backpropagation and the Adam optimizer all hand-written
+<p class="meta">A real multilayer perceptron — forward pass, backpropagation and the Adam optimizer, all hand-written
 in this page — is being trained <em>right now, in your tab,</em> to map pixel coordinates to colors.
-It starts knowing nothing and slowly paints its way to the target. Try doodling: it learns whatever you draw.</p>
+It starts knowing nothing and paints its way to the target. Try doodling: it learns whatever you draw.</p>
 
 <script>
 'use strict';
@@ -402,12 +459,12 @@ function drawChart() {
     const y = h - 6 - (lossHist[i] / max) * (h - 14);
     i ? cctx.lineTo(x, y) : cctx.moveTo(x, y);
   }
-  cctx.strokeStyle = '#f472b6';
+  cctx.strokeStyle = '#e3b264';
   cctx.lineWidth = 1.6;
   cctx.stroke();
-  cctx.fillStyle = '#8b96ad';
-  cctx.font = '9px -apple-system, sans-serif';
-  cctx.fillText('loss', 8, 12);
+  cctx.fillStyle = '#8a8fa3';
+  cctx.font = '9px "JetBrains Mono", monospace';
+  cctx.fillText('LOSS', 8, 13);
 }
 
 let turbo = false, batchesPerSec = 0, batchCount = 0, lastRate = performance.now();

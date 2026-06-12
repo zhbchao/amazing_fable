@@ -3,66 +3,102 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Neon Breakout — Fable 5 Showcase</title>
+<title>Neon Breakout — arcade · Fable 5</title>
+<meta name="theme-color" content="#07070c">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..700;1,9..144,300..700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
-  :root { --bg: #070a12; --text: #e8edf7; --muted: #8b96ad; }
+  :root {
+    --ink: #ece9e2;
+    --muted: #8a8fa3;
+    --amber: #e3b264;
+    --line: rgba(236, 233, 226, 0.14);
+  }
   * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; }
   body {
-    background: var(--bg);
-    color: var(--text);
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
+    background: #07070c;
+    color: var(--ink);
+    font-family: Inter, -apple-system, sans-serif;
     overflow: hidden;
-  }
-  header {
-    width: 100%;
-    max-width: 900px;
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    padding: 0.9rem 1.2rem;
+    justify-content: center;
   }
-  header a {
+  .ui { position: fixed; z-index: 5; }
+  #masthead { top: 1.4rem; left: 1.6rem; pointer-events: none; }
+  #masthead .back {
+    pointer-events: auto;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
     color: var(--muted);
     text-decoration: none;
-    font-size: 0.9rem;
+    transition: color 0.2s;
   }
-  header a:hover { color: var(--text); }
-  header .title { font-weight: 700; letter-spacing: 0.04em; }
-  header .title em {
-    font-style: normal;
-    background: linear-gradient(90deg, #f472b6, #7c6cff);
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
+  #masthead .back:hover { color: var(--ink); }
+  #masthead h1 {
+    margin-top: 0.7rem;
+    font-family: Fraunces, serif;
+    font-style: italic;
+    font-weight: 380;
+    font-size: clamp(1.5rem, 3vw, 2.1rem);
+    line-height: 1;
   }
+  #masthead .sub {
+    margin-top: 0.55rem;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.66rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  #masthead .sub b { color: var(--amber); font-weight: 500; }
+
+  #hint {
+    bottom: 1.9rem; right: 1.6rem;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.62rem;
+    letter-spacing: 0.14em;
+    color: var(--muted);
+    text-align: right;
+    line-height: 2;
+    opacity: 0.85;
+    pointer-events: none;
+  }
+
   #wrap {
     position: relative;
-    width: min(94vw, calc((100vh - 120px) * 4 / 3), 880px);
+    width: min(92vw, calc((100vh - 140px) * 4 / 3), 880px);
   }
   canvas {
     display: block;
     width: 100%;
-    border-radius: 14px;
-    border: 1px solid rgba(140,160,200,0.18);
-    box-shadow: 0 18px 60px rgba(0,0,0,0.55);
+    border-radius: 12px;
+    border: 1px solid var(--line);
+    box-shadow: 0 24px 70px rgba(0, 0, 0, 0.6);
     cursor: none;
     touch-action: none;
   }
-  .hint { color: var(--muted); font-size: 0.82rem; margin-top: 0.7rem; text-align: center; }
+
+  @media (max-width: 760px) { #hint { display: none; } }
 </style>
 </head>
 <body>
-<header>
-  <a href="../">← Fable 5 Showcase</a>
-  <span class="title">NEON <em>BREAKOUT</em></span>
-  <span style="width:110px"></span>
-</header>
+<div class="ui" id="masthead">
+  <a class="back" href="../">← Index</a>
+  <h1>Neon Breakout</h1>
+  <div class="sub">five levels · <b>combo</b> multipliers</div>
+</div>
+
+<div class="ui" id="hint">
+  mouse, touch or ← → to move<br>
+  click or space to launch · chain bricks for combos
+</div>
+
 <div id="wrap"><canvas id="game" width="800" height="600"></canvas></div>
-<p class="hint">Move: mouse / touch / ← → &nbsp;·&nbsp; Launch: click or space &nbsp;·&nbsp; Chain bricks for combo multipliers</p>
 
 <script>
 'use strict';
@@ -337,7 +373,7 @@ function draw() {
 
   // background
   const g = ctx.createLinearGradient(0, 0, 0, H);
-  g.addColorStop(0, '#0b0820'); g.addColorStop(1, '#070a12');
+  g.addColorStop(0, '#0c0916'); g.addColorStop(1, '#07070c');
   ctx.fillStyle = g;
   ctx.fillRect(-20, -20, W + 40, H + 40);
   // grid lines
@@ -410,14 +446,14 @@ function draw() {
   for (const f of state.floaters) {
     ctx.globalAlpha = Math.max(0, f.life);
     ctx.fillStyle = f.color;
-    ctx.font = 'bold 16px -apple-system, sans-serif';
+    ctx.font = '500 14px "JetBrains Mono", monospace';
     ctx.fillText(f.text, f.x, f.y);
   }
   ctx.globalAlpha = 1;
 
   // HUD
-  ctx.fillStyle = 'rgba(232,237,247,0.9)';
-  ctx.font = '600 16px -apple-system, sans-serif';
+  ctx.fillStyle = 'rgba(236,233,226,0.9)';
+  ctx.font = '500 13px "JetBrains Mono", monospace';
   ctx.textAlign = 'left';
   ctx.fillText(`SCORE ${state.score}`, 18, 30);
   ctx.textAlign = 'center';
@@ -425,15 +461,15 @@ function draw() {
   ctx.textAlign = 'right';
   ctx.fillText('♥'.repeat(Math.max(0, state.lives)), W - 18, 30);
   ctx.textAlign = 'left';
-  ctx.fillStyle = 'rgba(139,150,173,0.8)';
-  ctx.font = '12px -apple-system, sans-serif';
+  ctx.fillStyle = 'rgba(138,143,163,0.8)';
+  ctx.font = '10px "JetBrains Mono", monospace';
   ctx.fillText(`BEST ${state.best}`, 18, 50);
 
   // overlays
   if (state.mode !== 'playing') overlay();
   else if (state.ball.stuck) {
-    ctx.fillStyle = 'rgba(232,237,247,0.7)';
-    ctx.font = '15px -apple-system, sans-serif';
+    ctx.fillStyle = 'rgba(236,233,226,0.7)';
+    ctx.font = '12px "JetBrains Mono", monospace';
     ctx.textAlign = 'center';
     ctx.fillText('click or press space to launch', W / 2, H - 70);
   }
@@ -447,27 +483,27 @@ function draw() {
 }
 
 function overlay() {
-  ctx.fillStyle = 'rgba(7,10,18,0.78)';
+  ctx.fillStyle = 'rgba(7,7,12,0.8)';
   ctx.fillRect(0, 0, W, H);
   ctx.textAlign = 'center';
   const cy = H / 2;
-  ctx.font = '800 52px -apple-system, sans-serif';
+  ctx.font = 'italic 500 54px Fraunces, Georgia, serif';
   if (state.mode === 'ready') {
-    neonText('NEON BREAKOUT', W / 2, cy - 40, '#7c6cff');
-    ctx.fillStyle = '#e8edf7';
-    ctx.font = '18px -apple-system, sans-serif';
+    neonText('Neon Breakout', W / 2, cy - 40, '#e3b264');
+    ctx.fillStyle = '#ece9e2';
+    ctx.font = '13px "JetBrains Mono", monospace';
     ctx.fillText('Clear 5 levels. Chain bricks for combo multipliers.', W / 2, cy + 10);
     blinking('CLICK TO START', cy + 60);
   } else if (state.mode === 'gameover') {
-    neonText('GAME OVER', W / 2, cy - 40, '#f43f5e');
-    ctx.fillStyle = '#e8edf7';
-    ctx.font = '20px -apple-system, sans-serif';
+    neonText('Game over', W / 2, cy - 40, '#ff6f5e');
+    ctx.fillStyle = '#ece9e2';
+    ctx.font = '14px "JetBrains Mono", monospace';
     ctx.fillText(`Score ${state.score}   ·   Best ${state.best}`, W / 2, cy + 10);
     blinking('CLICK TO RETRY', cy + 60);
   } else if (state.mode === 'win') {
-    neonText('YOU WIN!', W / 2, cy - 40, '#2dd4bf');
-    ctx.fillStyle = '#e8edf7';
-    ctx.font = '20px -apple-system, sans-serif';
+    neonText('You win.', W / 2, cy - 40, '#e3b264');
+    ctx.fillStyle = '#ece9e2';
+    ctx.font = '14px "JetBrains Mono", monospace';
     ctx.fillText(`Final score ${state.score}   ·   Best ${state.best}`, W / 2, cy + 10);
     blinking('CLICK TO PLAY AGAIN', cy + 60);
   }
@@ -481,8 +517,8 @@ function neonText(text, x, y, color) {
 }
 function blinking(text, y) {
   if (Math.floor(performance.now() / 600) % 2 === 0) {
-    ctx.fillStyle = '#8b96ad';
-    ctx.font = '600 16px -apple-system, sans-serif';
+    ctx.fillStyle = '#8a8fa3';
+    ctx.font = '500 12px "JetBrains Mono", monospace';
     ctx.fillText(text, W / 2, y);
   }
 }
