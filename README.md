@@ -1,6 +1,6 @@
 # Fable 5 Showcase
 
-A gallery of interactive pieces written entirely by **Claude Fable 5** — Anthropic's frontier model. Most demos are single self-contained HTML files; the heavier 3D pieces (*Genesis*, *Ink*, *Restless Earth*) use [three.js](https://threejs.org) loaded from a CDN, and *Restless Earth* pulls live data from the USGS earthquake feed. Everything runs as static files on GitHub Pages — no build step.
+A gallery of interactive pieces written entirely by **Claude Fable 5** — Anthropic's frontier model. Most demos are single self-contained HTML files; the heavier 3D pieces (*Genesis*, *Ink*, *Restless Earth*, *Sudden Death*) use [three.js](https://threejs.org) loaded from a CDN, and *Restless Earth* pulls live data from the USGS earthquake feed. Everything runs as static files on GitHub Pages — no build step.
 
 **Live site:** https://zhbchao.github.io/amazing_fable/
 
@@ -12,11 +12,12 @@ A gallery of interactive pieces written entirely by **Claude Fable 5** — Anthr
 | 02 | [Ink](ink/) | Fluid dynamics · GPU | A real-time Navier–Stokes solver: semi-Lagrangian advection, Jacobi pressure projection, and vorticity confinement across ping-ponged half-float fields — drag (or touch, multi-finger) to pour luminous dye, with three palettes, storms, and ambient idle life |
 | 03 | [Watch It Learn](neural/) | Machine learning | A multilayer perceptron with Fourier-feature inputs — forward pass, backpropagation, and Adam hand-written — trains live in the tab to paint a target image, including one you doodle yourself |
 | 04 | [Endless Symphony](music/) | Generative music | An infinite composition: chords, bass, melody, and drums improvised from a seed, every instrument synthesized from raw oscillators through a hand-built reverb and delay |
-| 05 | [Neon Breakout](games/) | Game development | Complete arcade game: combo scoring, armored bricks, particle explosions, screen shake, and a WebAudio synthesizer for sound effects |
-| 06 | [Tearable Cloth](physics/) | Physics simulation | Verlet integration with constraint relaxation: grab, fling, and rip the cloth; fibers glow red under stress and snap when overstretched |
-| 07 | [Flow Fields](generative/) | Generative art | Thousands of particles painting through a hand-rolled fractal value-noise vector field, with curated palettes and PNG export |
-| 08 | [Infinite Landscapes](svg/) | SVG generation | Seeded procedural generator that assembles complete animated SVG documents — palettes, ridgelines, weather, wildlife — downloadable as standalone `.svg` files |
-| 09 | [Restless Earth](earth/) | Data viz · Live feed | Every M2.5+ earthquake of the last 30 days, fetched live from the USGS GeoJSON feed and rendered on a three.js wireframe globe — depth-colored, magnitude-sized, with a replay timeline, shock rings for big events, and per-quake hover details |
+| 05 | [Sudden Death](penalty/) | Game dev · Three.js | A 3D penalty shootout under synthesized floodlights: drag-to-shoot with curl from your gesture's curvature, an AI keeper that reads habits, a Verlet-cloth net that ripples on goals, a keeper phase where you guard the line, crowd audio from raw noise — best of five, then sudden death |
+| 06 | [Neon Breakout](games/) | Game development | Complete arcade game: combo scoring, armored bricks, particle explosions, screen shake, and a WebAudio synthesizer for sound effects |
+| 07 | [Tearable Cloth](physics/) | Physics simulation | Verlet integration with constraint relaxation: grab, fling, and rip the cloth; fibers glow red under stress and snap when overstretched |
+| 08 | [Flow Fields](generative/) | Generative art | Thousands of particles painting through a hand-rolled fractal value-noise vector field, with curated palettes and PNG export |
+| 09 | [Infinite Landscapes](svg/) | SVG generation | Seeded procedural generator that assembles complete animated SVG documents — palettes, ridgelines, weather, wildlife — downloadable as standalone `.svg` files |
+| 10 | [Restless Earth](earth/) | Data viz · Live feed | Every M2.5+ earthquake of the last 30 days, fetched live from the USGS GeoJSON feed and rendered on a three.js wireframe globe — depth-colored, magnitude-sized, with a replay timeline, shock rings for big events, and per-quake hover details |
 
 ## Design
 

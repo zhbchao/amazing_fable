@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#0b0b0f">
 <title>Fable 5 — a working showcase</title>
-<meta name="description" content="Nine interactive pieces — a GPU particle universe, a path tracer, live machine learning, generative music — designed and coded end to end by Claude Fable 5.">
+<meta name="description" content="Ten interactive pieces — a GPU particle universe, a fluid you can pour, a penalty shootout, live machine learning — designed and coded end to end by Claude Fable 5.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..700;1,9..144,300..700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -315,7 +315,7 @@
   <header class="hero">
     <p class="kicker mono">Fable 5 · A working showcase</p>
     <h1>Everything here was <em>imagined, designed, and&nbsp;coded</em> by a machine.</h1>
-    <p class="sub">Nine interactive pieces — a quarter-million-particle universe, a fluid
+    <p class="sub">Ten interactive pieces — a quarter-million-particle universe, a fluid
       you can pour with your cursor, a neural network learning live in your tab, an
       endless symphony — built end to end by <strong>Claude Fable 5</strong>. Every file,
       every shader, every note. Click anything.</p>
@@ -331,14 +331,14 @@
   <main id="index">
     <div class="index-head mono">
       <span>Index</span>
-      <span>9 works</span>
+      <span>10 works</span>
     </div>
     <ol class="works">
 
       <li><a class="work" href="3d/" data-preview="pv-genesis">
         <span class="num">01</span>
         <span>
-          <h2>Genesis</h2><span class="new">New</span>
+          <h2>Genesis</h2>
           <p>220,000 GPU particles breathing between a spiral galaxy, Saturn, a strange
             attractor, DNA, and type — simplex turbulence, bloom, and a cursor that stirs the dust.</p>
         </span>
@@ -349,7 +349,7 @@
       <li><a class="work" href="ink/" data-preview="pv-ink">
         <span class="num">02</span>
         <span>
-          <h2>Ink</h2><span class="new">New</span>
+          <h2>Ink</h2>
           <p>A real Navier–Stokes solver in WebGL: drag to pour luminous ink and watch
             vorticity curl it into storms — velocity, pressure, and dye fields computed
             every frame.</p>
@@ -380,8 +380,19 @@
         <span class="arrow">→</span>
       </a></li>
 
-      <li><a class="work" href="games/" data-preview="pv-games">
+      <li><a class="work" href="penalty/" data-preview="pv-penalty">
         <span class="num">05</span>
+        <span>
+          <h2>Sudden Death</h2><span class="new">New</span>
+          <p>A penalty shootout under the floodlights — drag through the ball, bend it past a
+            keeper who reads your habits, then pull on the gloves yourself. Best of five.</p>
+        </span>
+        <span class="tag mono">Game dev · Three.js</span>
+        <span class="arrow">→</span>
+      </a></li>
+
+      <li><a class="work" href="games/" data-preview="pv-games">
+        <span class="num">06</span>
         <span>
           <h2>Neon Breakout</h2>
           <p>A complete arcade game: particle explosions, screen shake, combo scoring, and a
@@ -392,7 +403,7 @@
       </a></li>
 
       <li><a class="work" href="physics/" data-preview="pv-physics">
-        <span class="num">06</span>
+        <span class="num">07</span>
         <span>
           <h2>Tearable Cloth</h2>
           <p>Verlet-integration cloth you can grab, fling, and rip apart — with wind, gravity,
@@ -403,7 +414,7 @@
       </a></li>
 
       <li><a class="work" href="generative/" data-preview="pv-flow">
-        <span class="num">07</span>
+        <span class="num">08</span>
         <span>
           <h2>Flow Fields</h2>
           <p>Thousands of particles drift through a hand-rolled noise field, painting a unique
@@ -414,7 +425,7 @@
       </a></li>
 
       <li><a class="work" href="svg/" data-preview="pv-svg">
-        <span class="num">08</span>
+        <span class="num">09</span>
         <span>
           <h2>Infinite Landscapes</h2>
           <p>A procedural landscape generator: every click composes a new animated scene —
@@ -425,9 +436,9 @@
       </a></li>
 
       <li><a class="work" href="earth/" data-preview="pv-earth">
-        <span class="num">09</span>
+        <span class="num">10</span>
         <span>
-          <h2>Restless Earth</h2><span class="new">New</span>
+          <h2>Restless Earth</h2>
           <p>Every earthquake on the planet from the last 30 days, pulled live from the USGS
             and rendered on a wireframe globe — press play and the whole month replays.</p>
         </span>
@@ -519,6 +530,35 @@
       <circle r="26" fill="none" stroke="rgba(140,160,200,0.4)" stroke-width="1.5"/>
       <text x="0" y="2" text-anchor="middle" dominant-baseline="middle" font-size="22" fill="#e8edf7">♪</text>
     </g>
+  </svg>
+</template>
+
+<template id="pv-penalty">
+  <svg viewBox="0 0 300 190" preserveAspectRatio="xMidYMid slice">
+    <rect width="300" height="190" fill="#07120b"/>
+    <rect y="148" width="300" height="42" fill="#0a1a10"/>
+    <g stroke="#ece9e2" stroke-width="2.5" fill="none" opacity="0.9">
+      <line x1="60" y1="40" x2="60" y2="148"/>
+      <line x1="240" y1="40" x2="240" y2="148"/>
+      <line x1="60" y1="40" x2="240" y2="40"/>
+    </g>
+    <g stroke="rgba(236,233,226,0.22)" stroke-width="0.8">
+      <line x1="60" y1="62" x2="240" y2="62"/><line x1="60" y1="84" x2="240" y2="84"/>
+      <line x1="60" y1="106" x2="240" y2="106"/><line x1="60" y1="128" x2="240" y2="128"/>
+      <line x1="82" y1="40" x2="82" y2="148"/><line x1="104" y1="40" x2="104" y2="148"/>
+      <line x1="126" y1="40" x2="126" y2="148"/><line x1="148" y1="40" x2="148" y2="148"/>
+      <line x1="170" y1="40" x2="170" y2="148"/><line x1="192" y1="40" x2="192" y2="148"/>
+      <line x1="214" y1="40" x2="214" y2="148"/>
+    </g>
+    <g transform="translate(150,118)">
+      <circle cy="-22" r="7" fill="#d9c4a8"/>
+      <rect x="-8" y="-15" width="16" height="26" rx="7" fill="#e3b264"/>
+      <line x1="-8" y1="-10" x2="-30" y2="-26" stroke="#e3b264" stroke-width="6" stroke-linecap="round"/>
+      <line x1="8" y1="-10" x2="30" y2="-26" stroke="#e3b264" stroke-width="6" stroke-linecap="round"/>
+    </g>
+    <circle cx="212" cy="58" r="11" fill="#f5f2e8"/>
+    <path d="M208,54 l5,-2 4,3 -1,5 -5,2 -4,-3 Z" fill="#10120f"/>
+    <path d="M70,170 Q140,150 212,70" stroke="#e3b264" stroke-width="1.6" fill="none" stroke-dasharray="3 5" opacity="0.8"/>
   </svg>
 </template>
 

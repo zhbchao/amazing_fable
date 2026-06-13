@@ -1,0 +1,1046 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#07070c">
+<title>Sudden Death — a penalty shootout · Fable 5</title>
+<meta name="description" content="A 3D penalty shootout under the floodlights: drag through the ball to shoot, curve your drag to bend it, then go in goal yourself. Built with three.js by Claude Fable 5.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..700;1,9..144,300..700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #ece9e2;
+    --muted: #8a8fa3;
+    --amber: #e3b264;
+    --line: rgba(236, 233, 226, 0.14);
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    background: #07070c;
+    color: var(--ink);
+    font-family: Inter, -apple-system, sans-serif;
+    overflow: hidden;
+  }
+  canvas { display: block; }
+  #scene { position: fixed; inset: 0; touch-action: none; }
+  #scene.aim { cursor: crosshair; }
+
+  .ui { position: fixed; z-index: 5; pointer-events: none; }
+  .ui a, .ui button { pointer-events: auto; }
+  .ui a { color: inherit; }
+
+  #masthead { top: 1.4rem; left: 1.6rem; }
+  #masthead .back {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--muted);
+    text-decoration: none;
+    transition: color 0.2s;
+  }
+  #masthead .back:hover { color: var(--ink); }
+  #masthead h1 {
+    margin-top: 0.7rem;
+    font-family: Fraunces, serif;
+    font-style: italic;
+    font-weight: 380;
+    font-size: clamp(1.5rem, 3vw, 2.1rem);
+    line-height: 1;
+  }
+  #masthead .sub {
+    margin-top: 0.55rem;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.66rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  #masthead .sub b { color: var(--amber); font-weight: 500; }
+
+  /* ---- scoreboard ---- */
+  #board {
+    top: 1.5rem; right: 1.6rem;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.68rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--muted);
+    text-align: right;
+    line-height: 2.1;
+  }
+  #board .row b { color: var(--ink); display: inline-block; min-width: 1.2ch; }
+  #board .dots { letter-spacing: 0.35em; margin-left: 0.6rem; }
+  #board .dots .g { color: var(--amber); }
+  #board .dots .m { color: #b25f6b; }
+  #board .dots .p { color: rgba(236, 233, 226, 0.22); }
+  #board .round { color: var(--muted); font-size: 0.62rem; }
+
+  /* ---- big centre prompt ---- */
+  #prompt {
+    top: 21%; left: 50%;
+    transform: translateX(-50%);
+    text-align: center;
+    opacity: 0;
+    transition: opacity 0.35s ease;
+    width: 100%;
+  }
+  #prompt.on { opacity: 1; }
+  #prompt .big {
+    font-family: Fraunces, serif;
+    font-style: italic;
+    font-weight: 380;
+    font-size: clamp(2.2rem, 6vw, 4.2rem);
+    line-height: 1.05;
+    color: var(--ink);
+    text-shadow: 0 4px 40px rgba(0, 0, 0, 0.8);
+  }
+  #prompt .big.gold { color: var(--amber); }
+  #prompt .small {
+    margin-top: 0.7rem;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.68rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  #panel {
+    bottom: 1.6rem; left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.35rem;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: rgba(9, 9, 14, 0.55);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    pointer-events: auto;
+  }
+  #panel button {
+    appearance: none;
+    border: 0;
+    background: transparent;
+    color: var(--muted);
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.66rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    padding: 0.5rem 0.95rem;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: color 0.25s, background 0.25s;
+    white-space: nowrap;
+  }
+  #panel button:hover { color: var(--ink); }
+  #panel button.active { color: #0a0a0d; background: var(--amber); }
+
+  #hint {
+    bottom: 1.9rem; right: 1.6rem;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.62rem;
+    letter-spacing: 0.14em;
+    color: var(--muted);
+    text-align: right;
+    line-height: 2;
+    opacity: 0.85;
+  }
+
+  #veil {
+    position: fixed; inset: 0; z-index: 10;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1.1rem;
+    background: #07070c;
+    transition: opacity 1.2s ease;
+  }
+  #veil.gone { opacity: 0; pointer-events: none; }
+  #veil .word {
+    font-family: Fraunces, serif;
+    font-style: italic;
+    font-weight: 350;
+    font-size: clamp(1.6rem, 4vw, 2.4rem);
+    color: var(--ink);
+  }
+  #veil .detail {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.66rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  #veil .bar {
+    width: 120px; height: 1px;
+    background: var(--line);
+    position: relative;
+    overflow: hidden;
+  }
+  #veil .bar::after {
+    content: "";
+    position: absolute; inset: 0;
+    background: var(--amber);
+    transform: translateX(-100%);
+    animation: sweep 1.4s ease-in-out infinite;
+  }
+  @keyframes sweep {
+    0% { transform: translateX(-100%); }
+    60% { transform: translateX(0); }
+    100% { transform: translateX(100%); }
+  }
+
+  @media (max-width: 760px) {
+    #hint { display: none; }
+    #board { font-size: 0.6rem; }
+  }
+</style>
+</head>
+<body>
+
+<div id="scene" class="aim"></div>
+
+<div class="ui" id="masthead">
+  <a class="back" href="../">← Index</a>
+  <h1>Sudden Death</h1>
+  <div class="sub">penalties · <b>summer 2026</b> · the cup is on</div>
+</div>
+
+<div class="ui" id="board"></div>
+
+<div class="ui" id="prompt"><div class="big" id="prompt-big"></div><div class="small" id="prompt-small"></div></div>
+
+<div class="ui" id="panel">
+  <button id="restart">New shootout</button>
+  <button id="sound" class="active">Sound on</button>
+</div>
+
+<div class="ui" id="hint">
+  drag through the ball to shoot · curve the drag to bend it<br>
+  in goal: guard the line with your cursor
+</div>
+
+<div id="veil">
+  <div class="word">Sudden Death</div>
+  <div class="bar"></div>
+  <div class="detail" id="veil-detail">chalking the spot</div>
+</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.166.1/build/three.module.js"
+  }
+}
+</script>
+
+<script type="module">
+const veil = document.getElementById('veil');
+const veilDetail = document.getElementById('veil-detail');
+
+let THREE;
+try {
+  THREE = await import('three');
+} catch (err) {
+  veilDetail.textContent = 'could not reach the three.js CDN — check your connection';
+  throw err;
+}
+
+/* ============================================================
+   Renderer & scene
+   ============================================================ */
+const container = document.getElementById('scene');
+const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+container.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x07070c);
+scene.fog = new THREE.Fog(0x07070c, 38, 95);
+
+const camera = new THREE.PerspectiveCamera(48, innerWidth / innerHeight, 0.1, 300);
+
+// pitch layout: goal line at z=0 (goal centred on x), penalty spot at z=11
+const SPOT = new THREE.Vector3(0, 0.11, 11);
+const GOAL_W = 7.32, GOAL_H = 2.44, POST_R = 0.06;
+
+const CAM_SHOOT = { pos: new THREE.Vector3(0, 1.9, 16.2), look: new THREE.Vector3(0, 1.5, 0) };
+const CAM_SAVE  = { pos: new THREE.Vector3(0, 2.4, -5.2), look: new THREE.Vector3(0, 1.1, 11) };
+let camFrom = { ...CAM_SHOOT }, camTo = CAM_SHOOT, camBlend = 1;
+const camLook = new THREE.Vector3().copy(CAM_SHOOT.look);
+
+/* ---- lights ---- */
+scene.add(new THREE.HemisphereLight(0x9aa3c0, 0x0a0f0a, 0.55));
+const key = new THREE.DirectionalLight(0xfff3dd, 1.6);
+key.position.set(-14, 22, 18);
+key.castShadow = true;
+key.shadow.mapSize.set(2048, 2048);
+key.shadow.camera.left = -14; key.shadow.camera.right = 14;
+key.shadow.camera.top = 18; key.shadow.camera.bottom = -6;
+key.shadow.camera.far = 70;
+key.shadow.bias = -0.0004;
+scene.add(key);
+scene.add(new THREE.DirectionalLight(0xaab4dd, 0.35).position.set(12, 14, -10).clone() && new THREE.DirectionalLight(0xaab4dd, 0.35));
+scene.children[scene.children.length - 1].position.set(12, 14, -10);
+
+/* ============================================================
+   Pitch (lines painted into one canvas texture)
+   ============================================================ */
+{
+  const S = 2048, M = 44;                 // canvas px, metres covered
+  const cv = document.createElement('canvas');
+  cv.width = cv.height = S;
+  const g = cv.getContext('2d');
+  const px = m => m / M * S;
+  // mowing stripes
+  for (let i = 0; i < 12; i++) {
+    g.fillStyle = i % 2 ? '#0d1d12' : '#0f2115';
+    g.fillRect(0, i * S / 12, S, S / 12);
+  }
+  g.strokeStyle = 'rgba(236,233,226,0.5)';
+  g.lineWidth = 5;
+  const cx = S / 2, gl = px(6);           // goal line 6m from canvas top edge
+  // goal line
+  g.beginPath(); g.moveTo(0, gl); g.lineTo(S, gl); g.stroke();
+  // penalty area 40.32 x 16.5
+  g.strokeRect(cx - px(20.16), gl, px(40.32), px(16.5));
+  // goal area 18.32 x 5.5
+  g.strokeRect(cx - px(9.16), gl, px(18.32), px(5.5));
+  // spot
+  g.fillStyle = 'rgba(236,233,226,0.6)';
+  g.beginPath(); g.arc(cx, gl + px(11), 7, 0, 7); g.fill();
+  // arc (outside the box)
+  g.beginPath(); g.arc(cx, gl + px(11), px(9.15), Math.PI * 0.205, Math.PI * 0.795); g.stroke();
+  const tex = new THREE.CanvasTexture(cv);
+  tex.anisotropy = 8;
+  const pitch = new THREE.Mesh(
+    new THREE.PlaneGeometry(M, M),
+    new THREE.MeshStandardMaterial({ map: tex, roughness: 1 }),
+  );
+  pitch.rotation.x = -Math.PI / 2;
+  pitch.position.set(0, 0, M / 2 - 6);    // goal line lands at z=0
+  pitch.receiveShadow = true;
+  scene.add(pitch);
+  // surround
+  const apron = new THREE.Mesh(
+    new THREE.PlaneGeometry(160, 160),
+    new THREE.MeshStandardMaterial({ color: 0x0a1009, roughness: 1 }),
+  );
+  apron.rotation.x = -Math.PI / 2;
+  apron.position.y = -0.02;
+  scene.add(apron);
+}
+
+/* ============================================================
+   Goal frame + verlet net
+   ============================================================ */
+{
+  const mat = new THREE.MeshStandardMaterial({ color: 0xf2efe6, roughness: 0.4 });
+  const postGeo = new THREE.CylinderGeometry(POST_R, POST_R, GOAL_H + POST_R, 12);
+  for (const sx of [-1, 1]) {
+    const p = new THREE.Mesh(postGeo, mat);
+    p.position.set(sx * GOAL_W / 2, (GOAL_H + POST_R) / 2, 0);
+    p.castShadow = true;
+    scene.add(p);
+  }
+  const bar = new THREE.Mesh(new THREE.CylinderGeometry(POST_R, POST_R, GOAL_W + POST_R * 2, 12), mat);
+  bar.rotation.z = Math.PI / 2;
+  bar.position.set(0, GOAL_H, 0);
+  bar.castShadow = true;
+  scene.add(bar);
+  // simple stays
+  for (const sx of [-1, 1]) {
+    const stay = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 2.6, 8), mat);
+    stay.position.set(sx * GOAL_W / 2, 1.05, -0.85);
+    stay.rotation.x = 0.72;
+    scene.add(stay);
+  }
+}
+
+/* ---- net: verlet grid hanging from the bar, sloping back ---- */
+const NET_X = 26, NET_Y = 12;
+const netPts = [];
+for (let j = 0; j <= NET_Y; j++) {
+  for (let i = 0; i <= NET_X; i++) {
+    const x = -GOAL_W / 2 + (i / NET_X) * GOAL_W;
+    const y = GOAL_H - (j / NET_Y) * GOAL_H;
+    const z = -0.12 - (j / NET_Y) * 1.15;
+    netPts.push({
+      x, y, z, px: x, py: y, pz: z,
+      pin: j === 0 || i === 0 || i === NET_X || j === NET_Y,
+    });
+  }
+}
+const netCons = [];
+const ni = (i, j) => j * (NET_X + 1) + i;
+for (let j = 0; j <= NET_Y; j++)
+  for (let i = 0; i <= NET_X; i++) {
+    if (i < NET_X) netCons.push([ni(i, j), ni(i + 1, j), GOAL_W / NET_X]);
+    if (j < NET_Y) {
+      const a = netPts[ni(i, j)], b = netPts[ni(i, j + 1)];
+      netCons.push([ni(i, j), ni(i, j + 1), Math.hypot(a.y - b.y, a.z - b.z)]);
+    }
+  }
+const netGeo = new THREE.BufferGeometry();
+const netArr = new Float32Array(netCons.length * 6);
+netGeo.setAttribute('position', new THREE.BufferAttribute(netArr, 3));
+scene.add(new THREE.LineSegments(netGeo, new THREE.LineBasicMaterial({
+  color: 0xece9e2, transparent: true, opacity: 0.32,
+})));
+
+function netStep() {
+  for (const p of netPts) {
+    if (p.pin) continue;
+    const vx = (p.x - p.px) * 0.96, vy = (p.y - p.py) * 0.96, vz = (p.z - p.pz) * 0.96;
+    p.px = p.x; p.py = p.y; p.pz = p.z;
+    p.x += vx; p.y += vy - 0.001; p.z += vz;
+  }
+  for (let it = 0; it < 2; it++) {
+    for (const [a, b, rest] of netCons) {
+      const p = netPts[a], q = netPts[b];
+      const dx = q.x - p.x, dy = q.y - p.y, dz = q.z - p.z;
+      const d = Math.hypot(dx, dy, dz) || 1e-5;
+      const f = (d - rest) / d * 0.5;
+      if (!p.pin) { p.x += dx * f; p.y += dy * f; p.z += dz * f; }
+      if (!q.pin) { q.x -= dx * f; q.y -= dy * f; q.z -= dz * f; }
+    }
+  }
+  let k = 0;
+  for (const [a, b] of netCons) {
+    const p = netPts[a], q = netPts[b];
+    netArr[k++] = p.x; netArr[k++] = p.y; netArr[k++] = p.z;
+    netArr[k++] = q.x; netArr[k++] = q.y; netArr[k++] = q.z;
+  }
+  netGeo.attributes.position.needsUpdate = true;
+}
+function netImpulse(x, y, vx, vy, vz) {
+  for (const p of netPts) {
+    if (p.pin) continue;
+    const d = Math.hypot(p.x - x, p.y - y);
+    if (d < 1.1) {
+      const w = (1 - d / 1.1) * 0.16;
+      p.px -= vx * w * 0.016; p.py -= vy * w * 0.016; p.pz -= vz * w * 0.016;
+    }
+  }
+}
+
+/* ============================================================
+   Stadium dressing: stands, floodlights, camera flashes
+   ============================================================ */
+{
+  const standMat = new THREE.MeshStandardMaterial({ color: 0x0b0c13, roughness: 1 });
+  const mkStand = (w, h, x, z, ry) => {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, 1.6), standMat);
+    m.position.set(x, h / 2, z);
+    m.rotation.y = ry;
+    scene.add(m);
+  };
+  mkStand(64, 13, 0, -9.5, 0);
+  mkStand(70, 12, -26, 18, Math.PI / 2);
+  mkStand(70, 12, 26, 18, -Math.PI / 2);
+
+  // floodlight towers
+  const towerMat = new THREE.MeshStandardMaterial({ color: 0x14151c, roughness: 0.8 });
+  const glowTex = (() => {
+    const c = document.createElement('canvas'); c.width = c.height = 128;
+    const g = c.getContext('2d');
+    const r = g.createRadialGradient(64, 64, 4, 64, 64, 62);
+    r.addColorStop(0, 'rgba(255,243,214,1)');
+    r.addColorStop(0.25, 'rgba(255,243,214,0.5)');
+    r.addColorStop(1, 'rgba(255,243,214,0)');
+    g.fillStyle = r; g.fillRect(0, 0, 128, 128);
+    return new THREE.CanvasTexture(c);
+  })();
+  for (const [tx, tz] of [[-21, -6], [21, -6], [-21, 26], [21, 26]]) {
+    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.26, 19, 8), towerMat);
+    pole.position.set(tx, 9.5, tz);
+    scene.add(pole);
+    const head = new THREE.Mesh(
+      new THREE.BoxGeometry(2.6, 1.1, 0.4),
+      new THREE.MeshBasicMaterial({ color: 0xfff3d6 }),
+    );
+    head.position.set(tx, 19.2, tz);
+    head.lookAt(0, 0, 8);
+    scene.add(head);
+    const glow = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: glowTex, transparent: true, opacity: 0.85, depthWrite: false,
+    }));
+    glow.scale.setScalar(7);
+    glow.position.copy(head.position);
+    scene.add(glow);
+  }
+}
+
+/* ---- crowd camera flashes ---- */
+const flashUniforms = { uTime: { value: 0 }, uBoost: { value: 1 } };
+{
+  const n = 700, p = new Float32Array(n * 3), seed = new Float32Array(n);
+  for (let i = 0; i < n; i++) {
+    const which = Math.random();
+    if (which < 0.4) { // back stand
+      p[i * 3] = (Math.random() - 0.5) * 60;
+      p[i * 3 + 1] = 2.5 + Math.random() * 10;
+      p[i * 3 + 2] = -8.6;
+    } else { // side stands
+      const s = which < 0.7 ? -1 : 1;
+      p[i * 3] = s * 25.1;
+      p[i * 3 + 1] = 2.5 + Math.random() * 9;
+      p[i * 3 + 2] = -8 + Math.random() * 50;
+    }
+    seed[i] = Math.random();
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(p, 3));
+  g.setAttribute('aSeed', new THREE.BufferAttribute(seed, 1));
+  scene.add(new THREE.Points(g, new THREE.ShaderMaterial({
+    uniforms: flashUniforms,
+    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+    vertexShader: `
+      attribute float aSeed;
+      uniform float uTime, uBoost;
+      varying float vA;
+      void main() {
+        float tw = fract(uTime * (0.06 + aSeed * 0.1) + aSeed * 7.0);
+        vA = smoothstep(0.985 - uBoost * 0.05, 1.0, tw) * 0.9;
+        vec4 mv = modelViewMatrix * vec4(position, 1.0);
+        gl_Position = projectionMatrix * mv;
+        gl_PointSize = (2.0 + aSeed * 2.0) * (60.0 / -mv.z);
+      }`,
+    fragmentShader: `
+      varying float vA;
+      void main() {
+        float d = length(gl_PointCoord - 0.5);
+        if (d > 0.5) discard;
+        gl_FragColor = vec4(vec3(1.0, 0.97, 0.9), vA * smoothstep(0.5, 0.1, d));
+      }`,
+  })));
+}
+
+/* ============================================================
+   Ball — stylized geo ball with black patches
+   ============================================================ */
+const ball = (() => {
+  const geo = new THREE.IcosahedronGeometry(0.11, 1).toNonIndexed();
+  const colors = new Float32Array(geo.attributes.position.count * 3);
+  for (let f = 0; f < geo.attributes.position.count / 3; f++) {
+    const dark = f % 5 === 0;
+    for (let v = 0; v < 3; v++) {
+      const i = (f * 3 + v) * 3;
+      colors[i] = colors[i + 1] = colors[i + 2] = dark ? 0.05 : 0.92;
+    }
+  }
+  geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+  const m = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({
+    vertexColors: true, flatShading: true, roughness: 0.55,
+  }));
+  m.castShadow = true;
+  scene.add(m);
+  return m;
+})();
+
+/* ============================================================
+   Mannequins (keeper & kicker) — stylized figures
+   ============================================================ */
+function makeFigure(kitColor) {
+  const g = new THREE.Group();
+  const kit = new THREE.MeshStandardMaterial({ color: kitColor, roughness: 0.7 });
+  const skin = new THREE.MeshStandardMaterial({ color: 0xd9c4a8, roughness: 0.8 });
+  const dark = new THREE.MeshStandardMaterial({ color: 0x15161c, roughness: 0.8 });
+  const torso = new THREE.Mesh(new THREE.CapsuleGeometry(0.21, 0.5, 4, 10), kit);
+  torso.position.y = 1.15;
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.14, 12, 10), skin);
+  head.position.y = 1.72;
+  const arms = [];
+  for (const s of [-1, 1]) {
+    const arm = new THREE.Mesh(new THREE.CapsuleGeometry(0.06, 0.52, 4, 8), kit);
+    arm.geometry.translate(0, -0.3, 0);
+    arm.position.set(s * 0.28, 1.48, 0);
+    arm.rotation.z = s * 0.5;
+    arms.push(arm);
+    g.add(arm);
+  }
+  for (const s of [-1, 1]) {
+    const leg = new THREE.Mesh(new THREE.CapsuleGeometry(0.075, 0.6, 4, 8), dark);
+    leg.position.set(s * 0.12, 0.42, 0);
+    g.add(leg);
+  }
+  g.add(torso, head);
+  g.traverse(o => { if (o.isMesh) o.castShadow = true; });
+  g.userData.arms = arms;
+  scene.add(g);
+  return g;
+}
+const keeper = makeFigure(0xe3b264);     // their keeper (amber) — guards goal in shoot phase
+const kicker = makeFigure(0x4a5470);     // their kicker (slate) — shoots at you in save phase
+keeper.position.set(0, 0, 0.45);
+kicker.visible = false;
+
+/* ---- your glove ring (save phase) ---- */
+const glove = new THREE.Mesh(
+  new THREE.RingGeometry(0.34, 0.42, 40),
+  new THREE.MeshBasicMaterial({ color: 0xe3b264, transparent: true, opacity: 0.9, side: THREE.DoubleSide }),
+);
+glove.position.set(0, 1.2, 0.2);
+glove.visible = false;
+scene.add(glove);
+
+/* ============================================================
+   Synthesized stadium audio
+   ============================================================ */
+let actx = null, crowdGain = null, soundOn = true;
+function audioInit() {
+  if (actx || !soundOn) return;
+  actx = new (window.AudioContext || window.webkitAudioContext)();
+  const len = actx.sampleRate * 2;
+  const buf = actx.createBuffer(1, len, actx.sampleRate);
+  const d = buf.getChannelData(0);
+  let last = 0;
+  for (let i = 0; i < len; i++) {           // brown-ish noise
+    last = (last + (Math.random() * 2 - 1) * 0.02) * 0.998;
+    d[i] = last * 18;
+  }
+  const src = actx.createBufferSource();
+  src.buffer = buf; src.loop = true;
+  const lp = actx.createBiquadFilter();
+  lp.type = 'lowpass'; lp.frequency.value = 420;
+  crowdGain = actx.createGain();
+  crowdGain.gain.value = 0.05;
+  src.connect(lp).connect(crowdGain).connect(actx.destination);
+  src.start();
+}
+function swell(amount, secs) {
+  if (!actx) return;
+  const t = actx.currentTime;
+  crowdGain.gain.cancelScheduledValues(t);
+  crowdGain.gain.setTargetAtTime(amount, t, 0.06);
+  crowdGain.gain.setTargetAtTime(0.05, t + secs * 0.4, secs * 0.5);
+}
+function blip(freq, dur, type = 'triangle', vol = 0.06, slide = 0) {
+  if (!actx) return;
+  const t = actx.currentTime;
+  const o = actx.createOscillator(), g = actx.createGain();
+  o.type = type;
+  o.frequency.setValueAtTime(freq, t);
+  if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(40, freq + slide), t + dur);
+  g.gain.setValueAtTime(vol, t);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  o.connect(g).connect(actx.destination);
+  o.start(t); o.stop(t + dur + 0.05);
+}
+const sfx = {
+  whistle: () => { blip(2350, 0.13, 'square', 0.035); setTimeout(() => blip(2350, 0.22, 'square', 0.035), 190); },
+  kick:    () => { blip(85, 0.14, 'sine', 0.16, -35); },
+  ping:    () => { blip(1250, 0.5, 'triangle', 0.08, -60); blip(2510, 0.32, 'sine', 0.04); },
+  roar:    () => { swell(0.55, 2.6); flashUniforms.uBoost.value = 6; },
+  groan:   () => { swell(0.22, 1.4); blip(150, 0.8, 'sawtooth', 0.018, -60); },
+  save:    () => { swell(0.4, 1.8); blip(420, 0.1, 'square', 0.04); },
+};
+
+/* ============================================================
+   Game state
+   ============================================================ */
+const G = {
+  state: 'idle',          // aim | flight | result | saveWait | saveFlight | over
+  round: 1,
+  you: [], ai: [],        // arrays of true/false per kick
+  flight: null,
+  keeperDive: null,
+  promptTimer: 0,
+};
+
+const boardEl = document.getElementById('board');
+function dots(arr, total) {
+  let s = '';
+  for (let i = 0; i < total; i++) {
+    if (i < arr.length) s += arr[i] ? '<span class="g">●</span>' : '<span class="m">✕</span>';
+    else s += '<span class="p">○</span>';
+  }
+  return s;
+}
+function scoreOf(a) { return a.filter(Boolean).length; }
+function updateBoard() {
+  const total = Math.max(5, G.you.length, G.ai.length, Math.min(G.round, 5));
+  boardEl.innerHTML =
+    `<div class="row">YOU <b>${scoreOf(G.you)}</b><span class="dots">${dots(G.you, total)}</span></div>` +
+    `<div class="row">AI&nbsp;&nbsp;<b>${scoreOf(G.ai)}</b><span class="dots">${dots(G.ai, total)}</span></div>` +
+    `<div class="round">${G.round > 5 ? 'SUDDEN DEATH' : `ROUND ${Math.min(G.round, 5)} OF 5`}</div>`;
+}
+
+const promptEl = document.getElementById('prompt');
+const promptBig = document.getElementById('prompt-big');
+const promptSmall = document.getElementById('prompt-small');
+function prompt(big, small = '', gold = false, ms = 1600) {
+  promptBig.textContent = big;
+  promptBig.classList.toggle('gold', gold);
+  promptSmall.textContent = small;
+  promptEl.classList.add('on');
+  clearTimeout(G.promptTimer);
+  if (ms) G.promptTimer = setTimeout(() => promptEl.classList.remove('on'), ms);
+}
+
+/* ---- decided? (shootout can end early) ---- */
+function decided() {
+  const ys = scoreOf(G.you), as = scoreOf(G.ai);
+  if (G.round <= 5) {
+    const yLeft = 5 - G.you.length, aLeft = 5 - G.ai.length;
+    if (ys > as + aLeft || as > ys + yLeft) return true;
+    if (G.you.length === 5 && G.ai.length === 5 && ys !== as) return true;
+    return false;
+  }
+  return G.you.length === G.ai.length && ys !== as;
+}
+
+function finish() {
+  G.state = 'over';
+  const ys = scoreOf(G.you), as = scoreOf(G.ai);
+  container.classList.remove('aim');
+  glove.visible = false;
+  if (ys > as) {
+    prompt('You win the shootout', `${ys} — ${as} · the crowd erupts`, true, 0);
+    sfx.roar(); sfx.whistle();
+  } else {
+    prompt('The keeper takes it', `${ys} — ${as} · heartbreak from twelve yards`, false, 0);
+    sfx.groan(); sfx.whistle();
+  }
+}
+
+function nextKick() {
+  if (decided()) { finish(); return; }
+  if (G.you.length <= G.ai.length) startShoot();
+  else startSave();
+}
+
+/* ============================================================
+   Shoot phase
+   ============================================================ */
+function startShoot() {
+  G.round = G.you.length + 1;
+  updateBoard();
+  G.state = 'aim';
+  container.classList.add('aim');
+  glove.visible = false;
+  kicker.visible = false;
+  keeper.visible = true;
+  keeper.position.set(0, 0, 0.45);
+  keeper.rotation.set(0, Math.PI, 0);
+  resetFigure(keeper);
+  ball.position.copy(SPOT);
+  ball.rotation.set(0, 0, 0);
+  camTo = CAM_SHOOT; camFrom = snapCam(); camBlend = 0;
+  prompt(G.round > 5 ? 'Sudden death — you shoot' : 'You shoot', 'drag through the ball', false, 1800);
+  if (G.round === 1) sfx.whistle();
+}
+
+function resetFigure(f) {
+  f.userData.arms[0].rotation.set(0, 0, -0.5);
+  f.userData.arms[1].rotation.set(0, 0, 0.5);
+  f.userData.dive = null;
+}
+
+/* ---- drag capture ---- */
+let drag = null;
+container.addEventListener('pointerdown', e => {
+  audioInit();
+  if (G.state === 'aim') drag = [{ x: e.clientX, y: e.clientY, t: performance.now() }];
+});
+container.addEventListener('pointermove', e => {
+  if (drag && G.state === 'aim') drag.push({ x: e.clientX, y: e.clientY, t: performance.now() });
+  if (G.state === 'saveWait' || G.state === 'saveFlight') {
+    // cursor guards the goal plane
+    const nx = (e.clientX / innerWidth) * 2 - 1;
+    const ny = -(e.clientY / innerHeight) * 2 + 1;
+    ray.setFromCamera({ x: nx, y: ny }, camera);
+    ray.ray.intersectPlane(goalPlane, gloveTarget);
+    gloveTarget.x = THREE.MathUtils.clamp(gloveTarget.x, -GOAL_W / 2, GOAL_W / 2);
+    gloveTarget.y = THREE.MathUtils.clamp(gloveTarget.y, 0.3, GOAL_H + 0.2);
+  }
+});
+container.addEventListener('pointerup', () => {
+  if (!drag || G.state !== 'aim') { drag = null; return; }
+  const a = drag[0], b = drag[drag.length - 1];
+  const dx = b.x - a.x, dy = b.y - a.y;
+  const len = Math.hypot(dx, dy);
+  if (len < 36 || dy > -8) { drag = null; return; }   // must flick upward
+  // curl: deviation of the mid point from the chord (signed)
+  const mid = drag[Math.floor(drag.length / 2)];
+  const cross = ((mid.x - a.x) * dy - (mid.y - a.y) * dx) / (len || 1);
+  const curl = THREE.MathUtils.clamp(cross / 90, -1, 1);
+  // power from flick speed
+  const speed = len / Math.max(b.t - a.t, 60);
+  const power = THREE.MathUtils.clamp((speed - 0.25) / 1.9, 0, 1);
+  // aim
+  let tx = (dx / innerWidth) * 13.5;
+  let ty = 0.15 + (-dy / innerHeight) * 6.8;
+  // high power costs accuracy
+  tx += (Math.random() - 0.5) * 0.85 * power;
+  ty += (Math.random() - 0.5) * 0.7 * power;
+  ty = Math.max(ty, 0.05);
+  shoot(tx, ty, power, curl);
+  drag = null;
+});
+
+function shoot(tx, ty, power, curl) {
+  G.state = 'flight';
+  container.classList.remove('aim');
+  sfx.kick();
+  const T = THREE.MathUtils.lerp(1.2, 0.72, power);
+  // keeper picks a corner — partly reading your aim
+  const read = Math.random() < 0.34 + G.round * 0.045 + (Math.abs(tx) < 1.2 ? 0.22 : 0);
+  const sideGuess = read ? Math.sign(tx) || (Math.random() < 0.5 ? -1 : 1)
+                         : [-1, 0, 1][(Math.random() * 3) | 0];
+  const hiGuess = read ? ty > 1.3 : Math.random() < 0.4;
+  const divePoint = new THREE.Vector2(sideGuess * 2.45, hiGuess ? 1.85 : 0.75);
+  G.keeperDive = { side: sideGuess, hi: hiGuess, started: false };
+  G.flight = {
+    t: 0, T, tx, ty, curl: curl * 2.1, power,
+    from: SPOT.clone(), mine: true, divePoint,
+    slow: G.round > 4 || decidedIfMiss(),
+  };
+}
+function decidedIfMiss() { // is this kick potentially decisive?
+  const ys = scoreOf(G.you), as = scoreOf(G.ai);
+  const yLeft = 5 - G.you.length, aLeft = 5 - G.ai.length;
+  return G.round > 5 || ys + yLeft === as || as + aLeft === ys + 1;
+}
+
+/* ============================================================
+   Save phase
+   ============================================================ */
+const ray = new THREE.Raycaster();
+const goalPlane = new THREE.Plane(new THREE.Vector3(0, 0, 1), -0.2);
+const gloveTarget = new THREE.Vector3(0, 1.2, 0.2);
+
+function startSave() {
+  updateBoard();
+  G.state = 'saveWait';
+  keeper.visible = false;
+  kicker.visible = true;
+  kicker.position.set(0.7, 0, 13.4);
+  kicker.rotation.set(0, Math.PI, 0);
+  resetFigure(kicker);
+  ball.position.copy(SPOT);
+  glove.visible = true;
+  camTo = CAM_SAVE; camFrom = snapCam(); camBlend = 0;
+  prompt(G.round > 5 ? 'Sudden death — you save' : "You're in goal", 'guard the line with your cursor', false, 1700);
+  // AI strikes after a breath
+  const wind = 1400 + Math.random() * 900;
+  setTimeout(() => {
+    if (G.state !== 'saveWait') return;
+    sfx.kick();
+    // AI aims for corners, with scatter
+    const corner = [[-2.9, 0.6], [2.9, 0.6], [-2.6, 1.9], [2.6, 1.9], [0, 2.05]][(Math.random() * 5) | 0];
+    let tx = corner[0] + (Math.random() - 0.5) * 1.1;
+    let ty = Math.max(corner[1] + (Math.random() - 0.5) * 0.7, 0.1);
+    if (Math.random() < 0.08) tx *= 1.45;          // occasional shank
+    G.state = 'saveFlight';
+    G.flight = {
+      t: 0, T: 0.78 + Math.random() * 0.22,
+      tx, ty, curl: (Math.random() - 0.5) * 2.4, power: 0.8,
+      from: SPOT.clone(), mine: false,
+      slow: false,
+    };
+  }, wind);
+}
+
+/* ============================================================
+   Flight integration (parametric, endpoint-exact)
+   ============================================================ */
+function flightPos(f, tt) {
+  const u = tt / f.T;
+  const x = f.from.x + (f.tx - f.from.x) * u + f.curl * Math.sin(Math.PI * u);
+  const vy0 = ((f.ty - f.from.y) + 4.9 * f.T * f.T) / f.T;
+  const y = f.from.y + vy0 * tt - 4.9 * tt * tt;
+  const z = f.from.z + (0.05 - f.from.z) * u;
+  return new THREE.Vector3(x, y, z);
+}
+
+function resolveShot(f) {
+  // where it crosses the line
+  const hitPost = Math.abs(Math.abs(f.tx) - GOAL_W / 2) < 0.14 && f.ty < GOAL_H + 0.1;
+  const hitBar = Math.abs(f.ty - GOAL_H) < 0.12 && Math.abs(f.tx) < GOAL_W / 2 + 0.1;
+  const onTarget = Math.abs(f.tx) < GOAL_W / 2 - 0.09 && f.ty < GOAL_H - 0.07;
+  if (hitPost || hitBar) return 'woodwork';
+  if (!onTarget) return 'off';
+  if (f.mine) {
+    const reach = 1.12 + (1 - f.power) * 0.55;
+    const d = Math.hypot(f.tx - f.divePoint.x, f.ty - f.divePoint.y);
+    return d < reach ? 'saved' : 'goal';
+  } else {
+    const d = Math.hypot(f.tx - glove.position.x, f.ty - glove.position.y);
+    return d < 1.18 ? 'saved' : 'goal';
+  }
+}
+
+function settleKick(outcome, f) {
+  const scored = outcome === 'goal';
+  if (f.mine) G.you.push(scored); else G.ai.push(scored);
+  updateBoard();
+  if (scored) {
+    netImpulse(f.tx, f.ty, (f.tx - f.from.x) / f.T, 0, -11 / f.T);
+    if (f.mine) { sfx.roar(); prompt('GOAL', placeWord(f), true); }
+    else { sfx.groan(); prompt('They score', 'beaten at the ' + (f.ty > 1.4 ? 'top' : 'bottom'), false); }
+  } else if (outcome === 'saved') {
+    if (f.mine) { sfx.groan(); prompt('SAVED', 'the keeper read it', false); }
+    else { sfx.save(); prompt('WHAT A SAVE', 'gloves like magnets', true); }
+  } else if (outcome === 'woodwork') {
+    sfx.ping(); setTimeout(() => sfx.groan(), 250);
+    prompt(f.ty > GOAL_H - 0.2 ? 'OFF THE BAR' : 'OFF THE POST', 'millimetres', false);
+  } else {
+    sfx.groan();
+    prompt(f.ty > GOAL_H ? 'OVER' : 'WIDE', f.mine ? 'row z' : 'they blaze it wide', false);
+  }
+  setTimeout(nextKick, 1900);
+}
+function placeWord(f) {
+  const side = f.tx < -1.4 ? 'left' : f.tx > 1.4 ? 'right' : 'centre';
+  const h = f.ty > 1.5 ? 'top' : 'low';
+  return `${h} ${side} · ${Math.round(60 + f.power * 65)} km/h`;
+}
+
+/* ============================================================
+   Camera helpers
+   ============================================================ */
+function snapCam() {
+  return { pos: camera.position.clone(), look: camLook.clone() };
+}
+
+/* ============================================================
+   UI buttons
+   ============================================================ */
+document.getElementById('restart').addEventListener('click', () => {
+  audioInit();
+  G.you = []; G.ai = []; G.round = 1;
+  promptEl.classList.remove('on');
+  startShoot();
+});
+const soundBtn = document.getElementById('sound');
+soundBtn.addEventListener('click', () => {
+  soundOn = !soundOn;
+  soundBtn.textContent = soundOn ? 'Sound on' : 'Sound off';
+  soundBtn.classList.toggle('active', soundOn);
+  if (!soundOn && actx) { actx.suspend(); }
+  else if (actx) actx.resume();
+  else audioInit();
+});
+
+/* ============================================================
+   Frame loop
+   ============================================================ */
+const clock = new THREE.Clock();
+let timeScale = 1;
+
+function tick() {
+  requestAnimationFrame(tick);
+  const raw = Math.min(clock.getDelta(), 0.05);
+  const now = performance.now();
+
+  // camera blend + idle sway
+  camBlend = Math.min(camBlend + raw * 1.4, 1);
+  const e = camBlend * camBlend * (3 - 2 * camBlend);
+  camera.position.lerpVectors(camFrom.pos, camTo.pos, e);
+  camLook.lerpVectors(camFrom.look, camTo.look, e);
+  camera.position.x += Math.sin(now * 0.0004) * 0.08;
+  camera.lookAt(camLook);
+
+  // slow motion on decisive flights
+  const targetScale = (G.flight && G.flight.slow && G.flight.t / G.flight.T > 0.45) ? 0.38 : 1;
+  timeScale += (targetScale - timeScale) * 0.12;
+  const dt = raw * timeScale;
+
+  flashUniforms.uTime.value = now * 0.001;
+  flashUniforms.uBoost.value += (1 - flashUniforms.uBoost.value) * 0.02;
+
+  // glove follows cursor
+  if (glove.visible) {
+    glove.position.lerp(gloveTarget, 0.3);
+    glove.material.opacity = 0.65 + Math.sin(now * 0.006) * 0.25;
+    // your keeper-body shadow follows below the glove
+  }
+
+  // keeper dive (their keeper, your shots)
+  if (G.flight && G.flight.mine && G.flight.t / G.flight.T > 0.22 && G.keeperDive && !G.keeperDive.started) {
+    G.keeperDive.started = true;
+  }
+  if (G.keeperDive?.started && keeper.visible) {
+    const k = G.keeperDive;
+    keeper.position.x += ((k.side * 1.9) - keeper.position.x) * 0.14;
+    keeper.position.y += ((k.hi ? 0.5 : 0) - keeper.position.y) * 0.1;
+    keeper.rotation.z += ((-k.side * (k.hi ? 1.15 : 0.85)) - keeper.rotation.z) * 0.13;
+    keeper.userData.arms[0].rotation.z += (-2.6 - keeper.userData.arms[0].rotation.z) * 0.15;
+    keeper.userData.arms[1].rotation.z += (2.6 - keeper.userData.arms[1].rotation.z) * 0.15;
+  } else if (keeper.visible) {
+    keeper.position.y = Math.sin(now * 0.003) * 0.02;       // idle bounce
+  }
+
+  // kicker run-up lean
+  if (kicker.visible && G.state === 'saveWait') {
+    kicker.position.z = 13.4 + Math.sin(now * 0.002) * 0.1;
+  }
+  if (kicker.visible && G.state === 'saveFlight') {
+    kicker.position.lerp(new THREE.Vector3(0.25, 0, 11.6), 0.08);
+    kicker.rotation.x += (-0.18 - kicker.rotation.x) * 0.1;
+  }
+
+  // ball flight
+  if (G.flight) {
+    const f = G.flight;
+    f.t += dt;
+    if (f.t >= f.T) {
+      const outcome = resolveShot(f);
+      const v = flightPos(f, f.T).sub(flightPos(f, f.T - 0.016)).divideScalar(0.016);
+      G.flight = null;
+      G.keeperDive = null;
+      G.state = 'result';
+      // place the ball where physicality says
+      if (outcome === 'goal') {
+        ball.position.set(f.tx, Math.max(f.ty, 0.12), -0.55);
+        netImpulse(f.tx, f.ty, v.x, v.y, v.z);
+      } else if (outcome === 'woodwork') {
+        ball.position.set(f.tx * 0.92, Math.max(f.ty * 0.8, 0.12), 1.6);
+      } else if (outcome === 'saved') {
+        ball.position.set(f.mine ? f.divePoint.x * 1.25 : glove.position.x * 1.2, 0.12, 2.6);
+      } else {
+        ball.position.set(f.tx * 1.05, Math.max(f.ty, 0.12), -2.4);
+      }
+      settleKick(outcome, f);
+    } else {
+      ball.position.copy(flightPos(f, f.t));
+      ball.rotation.x -= dt * 14;
+      ball.rotation.y += f.curl * dt * 6;
+    }
+  }
+
+  netStep();
+  renderer.render(scene, camera);
+}
+
+/* ============================================================
+   Boot
+   ============================================================ */
+updateBoard();
+camera.position.copy(CAM_SHOOT.pos);
+camera.lookAt(CAM_SHOOT.look);
+ball.position.copy(SPOT);
+tick();
+requestAnimationFrame(() => requestAnimationFrame(() => {
+  veil.classList.add('gone');
+  startShoot();
+}));
+
+addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+</script>
+</body>
+</html>
